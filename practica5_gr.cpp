@@ -7,6 +7,8 @@
 #include <string>
 #include <memory>
 #include <cstring>
+#include <algorithm>
+#include <limits>
 
 using namespace std;
 
@@ -100,31 +102,53 @@ public:
         }
     }
 
-    bool eliminarVertice(const string& v) {
-        for (auto it = verticesV.begin(); it != verticesV.end(); ++it) {
-            if (*it == v) {
-                verticesV.erase(it);
-                return true;
-            }
-        }
-        return false;
-    }
-
     void agregarTramo(const string& ni, const string& nf, const string& a, int tiempo, double cost) {
         agregarVertice(ni);
         agregarVertice(nf);
         aristasA.emplace_back(ni, nf, a, tiempo, cost);
     }
 
-    bool editarTramo(size_t indice, const string& ni, const string& nf, const string& a, int tiempo, double cost) {
-        if (indice >= aristasA.size()) return false;
+    void agregarAPath(const string& ni, const string& nf, const string& a, int tiempo, double cost) {
         agregarVertice(ni);
         agregarVertice(nf);
-        aristasA[indice].setNi(ni);
-        aristasA[indice].setNf(nf);
-        aristasA[indice].setEtiqueta(a);
-        aristasA[indice].setTiempo(tiempo);
-        aristasA[indice].setCost(cost);
+        path.emplace_back(ni, nf, a, tiempo, cost);
+    }
+
+    bool editarVertice(const string& actual, const string& nuevo) {
+        if (nuevo.empty() || existeVertice(nuevo)) return false;
+        auto it = find(verticesV.begin(), verticesV.end(), actual);
+        if (it == verticesV.end()) return false;
+        *it = nuevo;
+
+        for (NodoTramo& tramo : aristasA) {
+            if (tramo.getNi() == actual) tramo.setNi(nuevo);
+            if (tramo.getNf() == actual) tramo.setNf(nuevo);
+        }
+        for (NodoTramo& paso : path) {
+            if (paso.getNi() == actual) paso.setNi(nuevo);
+            if (paso.getNf() == actual) paso.setNf(nuevo);
+        }
+        return true;
+    }
+
+    bool eliminarVertice(const string& vertice) {
+        auto it = find(verticesV.begin(), verticesV.end(), vertice);
+        if (it == verticesV.end()) return false;
+        verticesV.erase(it);
+
+        aristasA.erase(remove_if(aristasA.begin(), aristasA.end(),
+            [&](const NodoTramo& tramo) {
+                return tramo.getNi() == vertice || tramo.getNf() == vertice;
+            }), aristasA.end());
+        return true;
+    }
+
+    bool editarTramo(size_t indice, const string& ni, const string& nf,
+                     const string& a, int tiempo, double cost) {
+        if (indice >= aristasA.size()) return false;
+        aristasA[indice] = NodoTramo(ni, nf, a, tiempo, cost);
+        agregarVertice(ni);
+        agregarVertice(nf);
         return true;
     }
 
@@ -134,10 +158,19 @@ public:
         return true;
     }
 
-    void agregarAPath(const string& ni, const string& nf, const string& a, int tiempo, double cost) {
-        agregarVertice(ni);
-        agregarVertice(nf);
-        path.emplace_back(ni, nf, a, tiempo, cost);
+    void listarVerticesNumerados() const {
+        cout << "\n--- VERTICES ---\n";
+        for (size_t i = 0; i < verticesV.size(); ++i)
+            cout << i + 1 << ". " << verticesV[i] << "\n";
+    }
+
+    void listarTramosNumerados() const {
+        cout << "\n--- TRAMOS ---\n";
+        for (size_t i = 0; i < aristasA.size(); ++i) {
+            cout << i + 1 << ". ";
+            aristasA[i].mostrar();
+            cout << "\n";
+        }
     }
 
     void limpiarPath() {
@@ -152,19 +185,6 @@ public:
         verticesV = v;
         aristasA = a;
         path = p;
-    }
-
-    void listarTramos() const {
-        if (aristasA.empty()) {
-            cout << "\n[AVISO] No hay tramos registrados en " << nombreGrafo << ".\n";
-            return;
-        }
-        cout << "\n--- TRAMOS EN [" << nombreGrafo << "] ---\n";
-        for (size_t i = 0; i < aristasA.size(); ++i) {
-            cout << i + 1 << ". ";
-            aristasA[i].mostrar();
-            cout << "\n";
-        }
     }
 
     void mostrarEstructura() const {
@@ -242,6 +262,34 @@ private:
         return s.substr(ini, fin - ini + 1);
     }
 
+    static bool parsearEnteroSeguro(const string& texto, int& salida) {
+        string limp = limpiar(texto);
+        if (limp.empty()) return false;
+        try {
+            size_t idx = 0;
+            int val = stoi(limp, &idx);
+            if (idx != limp.size()) return false;
+            salida = val;
+            return true;
+        } catch (...) {
+            return false;
+        }
+    }
+
+    static bool parsearDoubleSeguro(const string& texto, double& salida) {
+        string limp = limpiar(texto);
+        if (limp.empty()) return false;
+        try {
+            size_t idx = 0;
+            double val = stod(limp, &idx);
+            if (idx != limp.size()) return false;
+            salida = val;
+            return true;
+        } catch (...) {
+            return false;
+        }
+    }
+
     static string extraerValorCampoString(const string& bloque, const string& clave) {
         string patron = "\"" + clave + "\"";
         size_t pos = bloque.find(patron);
@@ -276,9 +324,11 @@ private:
         string tiempoStr = extraerValorCampoNumero(obj, "tiempo");
         string costStr = extraerValorCampoNumero(obj, "cost");
 
+        int tiempoVal = 0;
+        double costVal = 0.0;
         if (!a.empty()) t.setEtiqueta(a);
-        if (!tiempoStr.empty()) t.setTiempo(stoi(tiempoStr));
-        if (!costStr.empty()) t.setCost(stod(costStr));
+        if (parsearEnteroSeguro(tiempoStr, tiempoVal)) t.setTiempo(tiempoVal);
+        if (parsearDoubleSeguro(costStr, costVal)) t.setCost(costVal);
         return t;
     }
 
@@ -365,18 +415,25 @@ public:
         list<NodoTramo> pathActual;
         string seccion = "";
         bool enGrafo = false;
+        int profundidadLlaves = 0;
 
         while (getline(archivo, linea)) {
             string limp = limpiar(linea);
             if (limp.empty()) continue;
 
             if (limp.find("\"nombre\"") != string::npos) {
+                if (enGrafo && !nombreActual.empty() && resultado.find(nombreActual) == resultado.end()) {
+                    GrafoCuaderno g(nombreActual);
+                    g.cargarDatos(vActual, aActual, pathActual);
+                    resultado[nombreActual] = g;
+                }
                 nombreActual = extraerValorCampoString(limp, "nombre");
                 vActual.clear();
                 aActual.clear();
                 pathActual.clear();
                 seccion = "";
                 enGrafo = true;
+                profundidadLlaves = 1;
                 continue;
             }
 
@@ -419,13 +476,28 @@ public:
                 continue;
             }
 
-            if (seccion.empty() && (limp == "}," || (limp == "}" && !nombreActual.empty()))) {
-                if (!nombreActual.empty() && resultado.find(nombreActual) == resultado.end()) {
-                    GrafoCuaderno g(nombreActual);
-                    g.cargarDatos(vActual, aActual, pathActual);
-                    resultado[nombreActual] = g;
+            if (seccion.empty()) {
+                for (char c : limp) {
+                    if (c == '{') ++profundidadLlaves;
+                    else if (c == '}') --profundidadLlaves;
+                }
+                if (profundidadLlaves <= 0 && !nombreActual.empty()) {
+                    if (resultado.find(nombreActual) == resultado.end()) {
+                        GrafoCuaderno g(nombreActual);
+                        g.cargarDatos(vActual, aActual, pathActual);
+                        resultado[nombreActual] = g;
+                    }
+                    nombreActual.clear();
+                    enGrafo = false;
+                    profundidadLlaves = 0;
                 }
             }
+        }
+
+        if (enGrafo && !nombreActual.empty() && resultado.find(nombreActual) == resultado.end()) {
+            GrafoCuaderno g(nombreActual);
+            g.cargarDatos(vActual, aActual, pathActual);
+            resultado[nombreActual] = g;
         }
 
         archivo.close();
@@ -481,22 +553,6 @@ public:
         grafoActivo = nombre;
     }
 
-    void eliminarGrafo(const string& nombre) {
-        auto it = grafos.find(nombre);
-        if (it == grafos.end()) {
-            cout << "\n[ERROR] No existe ningun grafo con el nombre: " << nombre << "\n";
-            return;
-        }
-        grafos.erase(it);
-        cout << "\n[INFO] Grafo eliminado: " << nombre << "\n";
-
-        if (grafoActivo == nombre) {
-            grafoActivo = grafos.empty() ? "" : grafos.begin()->first;
-            cout << "[INFO] Grafo activo actual: "
-                 << (grafoActivo.empty() ? "Ninguno" : grafoActivo) << "\n";
-        }
-    }
-
     bool validarActivo() const {
         if (grafoActivo.empty() || grafos.find(grafoActivo) == grafos.end()) {
             cout << "\n[AVISO] Primero crea o selecciona un grafo en la opcion 1.\n";
@@ -511,24 +567,29 @@ public:
         cout << "\n[INFO] Vertice agregado a V en " << grafoActivo << ".\n";
     }
 
-    void quitarVertice(const string& v) {
-        if (!validarActivo()) return;
-        if (grafos[grafoActivo].eliminarVertice(v)) {
-            cout << "\n[INFO] Vertice eliminado de V en " << grafoActivo << ".\n";
-        } else {
-            cout << "\n[ERROR] El vertice no existe en V.\n";
-        }
-    }
-
     void nuevoTramo(const string& ni, const string& nf, const string& a, int tiempo, double cost) {
         if (!validarActivo()) return;
         grafos[grafoActivo].agregarTramo(ni, nf, a, tiempo, cost);
         cout << "\n[INFO] Tramo agregado a A en " << grafoActivo << ".\n";
     }
 
-    void listarTramosActivo() const {
+    void nuevoTramoPath(const string& ni, const string& nf, const string& a, int tiempo, double cost) {
         if (!validarActivo()) return;
-        grafos.at(grafoActivo).listarTramos();
+        grafos[grafoActivo].agregarAPath(ni, nf, a, tiempo, cost);
+        cout << "\n[INFO] Tramo agregado a path en " << grafoActivo << ".\n";
+    }
+
+    void listarVerticesActivo() const {
+        if (validarActivo()) grafos.at(grafoActivo).listarVerticesNumerados();
+    }
+
+    void listarTramosActivo() const {
+        if (validarActivo()) grafos.at(grafoActivo).listarTramosNumerados();
+    }
+
+    size_t cantidadVerticesActivo() const {
+        if (!validarActivo()) return 0;
+        return grafos.at(grafoActivo).getVerticesV().size();
     }
 
     size_t cantidadTramosActivo() const {
@@ -536,28 +597,31 @@ public:
         return grafos.at(grafoActivo).getAristasA().size();
     }
 
-    void modificarTramo(size_t indice, const string& ni, const string& nf, const string& a, int tiempo, double cost) {
-        if (!validarActivo()) return;
-        if (grafos[grafoActivo].editarTramo(indice, ni, nf, a, tiempo, cost)) {
-            cout << "\n[INFO] Tramo actualizado correctamente.\n";
-        } else {
-            cout << "\n[ERROR] Numero de tramo no valido.\n";
-        }
+    string getVerticeActivo(size_t indice) const {
+        if (!validarActivo()) return "";
+        const auto& vertices = grafos.at(grafoActivo).getVerticesV();
+        return indice < vertices.size() ? vertices[indice] : "";
     }
 
-    void quitarTramo(size_t indice) {
-        if (!validarActivo()) return;
-        if (grafos[grafoActivo].eliminarTramo(indice)) {
-            cout << "\n[INFO] Tramo eliminado de A.\n";
-        } else {
-            cout << "\n[ERROR] Numero de tramo no valido.\n";
-        }
+    bool editarVertice(const string& actual, const string& nuevo) {
+        if (!validarActivo()) return false;
+        return grafos[grafoActivo].editarVertice(actual, nuevo);
     }
 
-    void nuevoTramoPath(const string& ni, const string& nf, const string& a, int tiempo, double cost) {
-        if (!validarActivo()) return;
-        grafos[grafoActivo].agregarAPath(ni, nf, a, tiempo, cost);
-        cout << "\n[INFO] Tramo agregado a path en " << grafoActivo << ".\n";
+    bool eliminarVertice(const string& vertice) {
+        if (!validarActivo()) return false;
+        return grafos[grafoActivo].eliminarVertice(vertice);
+    }
+
+    bool editarTramo(size_t indice, const string& ni, const string& nf,
+                     const string& a, int tiempo, double cost) {
+        if (!validarActivo()) return false;
+        return grafos[grafoActivo].editarTramo(indice, ni, nf, a, tiempo, cost);
+    }
+
+    bool eliminarTramo(size_t indice) {
+        if (!validarActivo()) return false;
+        return grafos[grafoActivo].eliminarTramo(indice);
     }
 
     void mostrarGrafoElegido(const string& nombre) const {
@@ -593,6 +657,37 @@ public:
     }
 };
 
+namespace {
+    int leerEntero(const string& prompt) {
+        int val;
+        while (true) {
+            cout << prompt;
+            if (cin >> val) return val;
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "[ERROR] Ingresa un numero entero valido.\n";
+        }
+    }
+
+    double leerDouble(const string& prompt) {
+        double val;
+        while (true) {
+            cout << prompt;
+            if (cin >> val) return val;
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "[ERROR] Ingresa un numero valido.\n";
+        }
+    }
+
+    string leerToken(const string& prompt) {
+        string token;
+        cout << prompt;
+        cin >> token;
+        return token;
+    }
+}
+
 // ==========================================
 // 6. MENU INTERACTIVO
 // ==========================================
@@ -607,163 +702,209 @@ int main() {
         cout << "     Grafo activo: " << (app.getGrafoActivo().empty() ? "Ninguno" : app.getGrafoActivo()) << "\n";
         cout << "=========================================================\n";
         cout << "1. Crear o seleccionar grafo activo\n";
-        cout << "2. Eliminar un grafo\n";
-        cout << "3. Agregar vertice a V (en grafo activo)\n";
-        cout << "4. Eliminar vertice de V (en grafo activo)\n";
-        cout << "5. Agregar tramo a A (ni, nf, a, tiempo, cost)\n";
-        cout << "6. Editar tramo de A\n";
-        cout << "7. Eliminar tramo de A\n";
-        cout << "8. Agregar tramo a path (list<Nodo>)\n";
-        cout << "9. Elegir que grafo quieres ver\n";
-        cout << "10. Guardar todos los grafos en archivo JSON\n";
-        cout << "11. Cargar grafos desde archivo JSON\n";
-        cout << "12. Limpiar path del grafo activo\n";
-        cout << "13. Salir\n";
-        cout << "Selecciona una opcion: ";
-        cin >> opcion;
+        cout << "2. Agregar vertice a V (en grafo activo)\n";
+        cout << "3. Agregar tramo a A (ni, nf, a, tiempo, cost)\n";
+        cout << "4. Agregar tramo a path (list<Nodo>)\n";
+        cout << "5. Elegir que grafo quieres ver\n";
+        cout << "6. Guardar todos los grafos en archivo JSON\n";
+        cout << "7. Cargar grafos desde archivo JSON\n";
+        cout << "8. Editar elemento existente en memoria RAM\n";
+        cout << "9. Eliminar elemento existente en memoria RAM\n";
+        cout << "10. Salir\n";
+        opcion = leerEntero("Selecciona una opcion: ");
 
         switch (opcion) {
             case 1: {
                 app.listarGrafos();
-                string nombre;
-                cout << "Escribe el nombre del grafo a crear o activar: ";
-                cin >> nombre;
+                string nombre = leerToken("Escribe el nombre del grafo a crear o activar (ej. Ruta1): ");
                 app.crearOSeleccionarGrafo(nombre);
                 break;
             }
             case 2: {
-                if (!app.hayGrafos()) {
-                    cout << "\n[AVISO] No hay grafos para eliminar.\n";
-                    break;
+                if (!app.validarActivo()) break;
+                int cant = leerEntero("Cuantos vertices deseas agregar?: ");
+                if (cant < 0) cant = 0;
+                for (int i = 0; i < cant; ++i) {
+                    string v = leerToken("Vertice [" + to_string(i + 1) + "] (sin espacios): ");
+                    app.nuevoVertice(v);
                 }
-                app.listarGrafos();
-                string nombre;
-                cout << "Escribe el nombre del grafo a eliminar: ";
-                cin >> nombre;
-                app.eliminarGrafo(nombre);
                 break;
             }
             case 3: {
                 if (!app.validarActivo()) break;
-                int cant;
-                cout << "Cuantos vertices deseas agregar?: ";
-                cin >> cant;
+                int cant = leerEntero("Cuantos tramos deseas agregar a A?: ");
+                if (cant < 0) cant = 0;
                 for (int i = 0; i < cant; ++i) {
-                    string v;
-                    cout << "Vertice [" << i + 1 << "] (sin espacios): ";
-                    cin >> v;
-                    app.nuevoVertice(v);
+                    string ni = leerToken("Tramo [" + to_string(i + 1) + "] - ni (origen): ");
+                    string nf = leerToken("Tramo [" + to_string(i + 1) + "] - nf (destino): ");
+                    string a = leerToken("a (etiqueta max 3 chars): ");
+                    int tiempo = leerEntero("tiempo (int): ");
+                    double cost = leerDouble("cost (double): ");
+                    app.nuevoTramo(ni, nf, a, tiempo, cost);
                 }
                 break;
             }
             case 4: {
                 if (!app.validarActivo()) break;
-                string v;
-                cout << "Nombre del vertice a eliminar de V: ";
-                cin >> v;
-                app.quitarVertice(v);
-                break;
-            }
-            case 5: {
-                if (!app.validarActivo()) break;
-                int cant;
-                cout << "Cuantos tramos deseas agregar a A?: ";
-                cin >> cant;
+                int cant = leerEntero("Cuantos tramos deseas agregar a path?: ");
+                if (cant < 0) cant = 0;
                 for (int i = 0; i < cant; ++i) {
-                    string ni, nf, a;
-                    int tiempo;
-                    double cost;
-                    cout << "Tramo [" << i + 1 << "] - ni (origen) y nf (destino): ";
-                    cin >> ni >> nf;
-                    cout << "a (etiqueta max 3 chars): ";
-                    cin >> a;
-                    cout << "tiempo (int) y cost (double): ";
-                    cin >> tiempo >> cost;
-                    app.nuevoTramo(ni, nf, a, tiempo, cost);
-                }
-                break;
-            }
-            case 6: {
-                if (!app.validarActivo() || app.cantidadTramosActivo() == 0) {
-                    cout << "\n[AVISO] No hay tramos para editar en el grafo activo.\n";
-                    break;
-                }
-                app.listarTramosActivo();
-                size_t num;
-                cout << "Numero de tramo a editar: ";
-                cin >> num;
-
-                string ni, nf, a;
-                int tiempo;
-                double cost;
-                cout << "Nuevo ni (origen) y nf (destino): ";
-                cin >> ni >> nf;
-                cout << "Nueva etiqueta a (max 3 chars): ";
-                cin >> a;
-                cout << "Nuevo tiempo (int) y cost (double): ";
-                cin >> tiempo >> cost;
-                app.modificarTramo(num - 1, ni, nf, a, tiempo, cost);
-                break;
-            }
-            case 7: {
-                if (!app.validarActivo() || app.cantidadTramosActivo() == 0) {
-                    cout << "\n[AVISO] No hay tramos para eliminar en el grafo activo.\n";
-                    break;
-                }
-                app.listarTramosActivo();
-                size_t num;
-                cout << "Numero de tramo a eliminar: ";
-                cin >> num;
-                app.quitarTramo(num - 1);
-                break;
-            }
-            case 8: {
-                if (!app.validarActivo()) break;
-                int cant;
-                cout << "Cuantos tramos deseas agregar a path?: ";
-                cin >> cant;
-                for (int i = 0; i < cant; ++i) {
-                    string ni, nf, a;
-                    int tiempo;
-                    double cost;
-                    cout << "Paso [" << i + 1 << "] - ni (origen) y nf (destino): ";
-                    cin >> ni >> nf;
-                    cout << "a (etiqueta max 3 chars): ";
-                    cin >> a;
-                    cout << "tiempo (int) y cost (double): ";
-                    cin >> tiempo >> cost;
+                    string ni = leerToken("Paso [" + to_string(i + 1) + "] - ni (origen): ");
+                    string nf = leerToken("Paso [" + to_string(i + 1) + "] - nf (destino): ");
+                    string a = leerToken("a (etiqueta max 3 chars): ");
+                    int tiempo = leerEntero("tiempo (int): ");
+                    double cost = leerDouble("cost (double): ");
                     app.nuevoTramoPath(ni, nf, a, tiempo, cost);
                 }
                 break;
             }
-            case 9: {
+            case 5: {
                 if (!app.hayGrafos()) {
                     cout << "\n[AVISO] No hay grafos registrados para mostrar.\n";
                     break;
                 }
                 app.listarGrafos();
-                string elegido;
-                cout << "Que grafo quieres ver? Escribe su nombre: ";
-                cin >> elegido;
+                string elegido = leerToken("Que grafo quieres ver? Escribe su nombre: ");
                 app.mostrarGrafoElegido(elegido);
                 break;
             }
-            case 10:
+            case 6:
                 app.guardarJSON(archivoJSON);
                 break;
-            case 11:
+            case 7:
                 app.cargarJSON(archivoJSON);
                 break;
-            case 12:
-                app.limpiarPathActivo();
+            case 8: {
+                if (!app.validarActivo()) break;
+                int tipo = leerEntero("Que deseas editar?\n1. Vertice\n2. Tramo\nSelecciona una opcion: ");
+
+                if (tipo == 1) {
+                    app.listarVerticesActivo();
+                    if (app.cantidadVerticesActivo() == 0) break;
+
+                    string actual = leerToken("Nombre del vertice actual: ");
+                    string nuevo = leerToken("Nuevo nombre del vertice: ");
+
+                    if (app.editarVertice(actual, nuevo))
+                        cout << "\n[INFO] Vertice editado correctamente.\n";
+                    else
+                        cout << "\n[ERROR] No se pudo editar el vertice.\n";
+
+                } else if (tipo == 2) {
+                    app.listarTramosActivo();
+                    if (app.cantidadTramosActivo() == 0) break;
+
+                    int indice = leerEntero("Numero del tramo a editar: ");
+                    if (indice < 1 || static_cast<size_t>(indice) > app.cantidadTramosActivo()) {
+                        cout << "\n[ERROR] Numero de tramo invalido.\n";
+                        break;
+                    }
+
+                    string ni = leerToken("Nuevo ni (origen): ");
+                    string nf = leerToken("Nuevo nf (destino): ");
+                    string a = leerToken("Nueva etiqueta (a): ");
+                    int tiempo = leerEntero("Nuevo tiempo (int): ");
+                    double cost = leerDouble("Nuevo costo (double): ");
+
+                    if (app.editarTramo(static_cast<size_t>(indice - 1), ni, nf, a, tiempo, cost))
+                        cout << "\n[INFO] Tramo editado correctamente.\n";
+                    else
+                        cout << "\n[ERROR] No se pudo editar el tramo.\n";
+                } else {
+                    cout << "\n[ERROR] Opcion no valida.\n";
+                }
                 break;
-            case 13:
+            }
+            case 9: {
+                if (!app.validarActivo()) break;
+                int tipo = leerEntero("Que deseas eliminar?\n1. Vertice\n2. Tramo\nSelecciona una opcion: ");
+
+                if (tipo == 1) {
+                    app.listarVerticesActivo();
+                    if (app.cantidadVerticesActivo() == 0) break;
+
+                    string vertice = leerToken("Nombre del vertice a eliminar: ");
+                    if (app.eliminarVertice(vertice))
+                        cout << "\n[INFO] Vertice eliminado correctamente.\n";
+                    else
+                        cout << "\n[ERROR] No se pudo eliminar el vertice.\n";
+
+                } else if (tipo == 2) {
+                    app.listarTramosActivo();
+                    if (app.cantidadTramosActivo() == 0) break;
+
+                    int indice = leerEntero("Numero del tramo a eliminar: ");
+                    if (indice < 1 || static_cast<size_t>(indice) > app.cantidadTramosActivo()) {
+                        cout << "\n[ERROR] Numero de tramo invalido.\n";
+                        break;
+                    }
+
+                    if (app.eliminarTramo(static_cast<size_t>(indice - 1)))
+                        cout << "\n[INFO] Tramo eliminado correctamente.\n";
+                    else
+                        cout << "\n[ERROR] No se pudo eliminar el tramo.\n";
+                } else {
+                    cout << "\n[ERROR] Opcion no valida.\n";
+                }
+                break;
+            }
+            case 10:
                 cout << "\nSaliendo del programa. Hasta luego!\n";
                 break;
             default:
                 cout << "\n[ERROR] Opcion no valida.\n";
         }
-    } while (opcion != 13);
+    } while (opcion != 10);
 
     return 0;
 }
+
+/*
+{
+  "grafos": [
+    {
+      "nombre": "RutaNorte",
+      "G": {
+        "V": ["A", "B", "C", "D"],
+        "A": ["t1", "t2", "t3"],
+        "tramos": [
+          {"ni": "A", "nf": "B", "a": "t1", "tiempo": 12, "cost": 25.500000},
+          {"ni": "B", "nf": "C", "a": "t2", "tiempo": 18, "cost": 40.000000},
+          {"ni": "C", "nf": "D", "a": "t3", "tiempo": 10, "cost": 15.000000}
+        ],
+        "path": [
+          {"ni": "A", "nf": "B", "a": "t1", "tiempo": 12, "cost": 25.500000}
+        ]
+      }
+    }
+  ],
+  "digrafos": [
+    {
+      "nombre": "FlujoProceso",
+      "D": {
+        "V": ["Inicio", "Validar", "Procesar", "Fin"],
+        "A": ["a1", "a2", "a3"],
+        "arcos": [
+          {"ni": "Inicio", "nf": "Validar", "a": "a1", "tiempo": 3, "cost": 5.000000},
+          {"ni": "Validar", "nf": "Procesar", "a": "a2", "tiempo": 15, "cost": 30.000000},
+          {"ni": "Procesar", "nf": "Fin", "a": "a3", "tiempo": 4, "cost": 8.000000}
+        ],
+        "path": []
+      }
+    }
+  ],
+  "arboles": [
+    {
+      "nombre": "JerarquiaApp",
+      "T": {
+        "raiz": "Sistema",
+        "nodos": [
+          {"valor": "Sistema", "padre": "", "etiqueta": "rai", "peso": 100.000000},
+          {"valor": "Grafos", "padre": "Sistema", "etiqueta": "mod", "peso": 40.000000},
+          {"valor": "Arboles", "padre": "Sistema", "etiqueta": "mod", "peso": 35.000000}
+        ]
+      }
+    }
+  ]
+}
+*/
