@@ -10,6 +10,88 @@
 using namespace std;
 
 // ==========================================
+// UTILIDAD DE TEXTO Y ESCAPE XML (SRP)
+// ==========================================
+class UtilXML {
+public:
+    static string limpiar(const string& s) {
+        size_t ini = s.find_first_not_of(" \t\r\n");
+        if (ini == string::npos) return "";
+        size_t fin = s.find_last_not_of(" \t\r\n");
+        return s.substr(ini, fin - ini + 1);
+    }
+
+    static bool parsearEnteroSeguro(const string& texto, int& salida) {
+        string limp = limpiar(texto);
+        if (limp.empty()) return false;
+        try {
+            size_t idx = 0;
+            int val = stoi(limp, &idx);
+            if (idx != limp.size()) return false;
+            salida = val;
+            return true;
+        } catch (...) {
+            return false;
+        }
+    }
+
+    static string escaparXML(const string& texto) {
+        string out;
+        out.reserve(texto.size());
+        for (char c : texto) {
+            if (c == '&') out += "&amp;";
+            else if (c == '<') out += "&lt;";
+            else if (c == '>') out += "&gt;";
+            else if (c == '"') out += "&quot;";
+            else if (c == '\'') out += "&apos;";
+            else out += c;
+        }
+        return out;
+    }
+
+    static string desescaparXML(const string& texto) {
+        string out;
+        out.reserve(texto.size());
+        for (size_t i = 0; i < texto.size(); ++i) {
+            if (texto[i] == '&') {
+                if (texto.compare(i, 5, "&amp;") == 0) {
+                    out += '&';
+                    i += 4;
+                } else if (texto.compare(i, 4, "&lt;") == 0) {
+                    out += '<';
+                    i += 3;
+                } else if (texto.compare(i, 4, "&gt;") == 0) {
+                    out += '>';
+                    i += 3;
+                } else if (texto.compare(i, 6, "&quot;") == 0) {
+                    out += '"';
+                    i += 5;
+                } else if (texto.compare(i, 6, "&apos;") == 0) {
+                    out += '\'';
+                    i += 5;
+                } else {
+                    out += texto[i];
+                }
+            } else {
+                out += texto[i];
+            }
+        }
+        return out;
+    }
+
+    static string extraerTag(const string& bloque, const string& tag) {
+        string apertura = "<" + tag + ">";
+        string cierre = "</" + tag + ">";
+        size_t pos1 = bloque.find(apertura);
+        if (pos1 == string::npos) return "";
+        size_t inicio = pos1 + apertura.size();
+        size_t pos2 = bloque.find(cierre, inicio);
+        if (pos2 == string::npos) return "";
+        return desescaparXML(bloque.substr(inicio, pos2 - inicio));
+    }
+};
+
+// ==========================================
 // 1. REGISTRO ESCOLAR DESCRIPTIVO (SRP)
 // Permite describir alumnos, asignaturas, aulas, equipos, etc.
 // con multiples descripciones por registro
@@ -19,44 +101,6 @@ private:
     string tipo;
     string etiqueta;
     vector<string> descripciones;
-
-    static string limpiar(const string& s) {
-        size_t ini = s.find_first_not_of(" \t\r\n");
-        if (ini == string::npos) return "";
-        size_t fin = s.find_last_not_of(" \t\r\n");
-        return s.substr(ini, fin - ini + 1);
-    }
-
-    static string escaparCampo(const string& s) {
-        string out;
-        for (char c : s) {
-            if (c == '\\') out += "\\\\";
-            else if (c == '|') out += "\\p";
-            else if (c == ';') out += "\\s";
-            else if (c == ',') out += "\\c";
-            else if (c == '~') out += "\\t";
-            else if (c == '\n' || c == '\r') out += " ";
-            else out += c;
-        }
-        return out;
-    }
-
-    static string desescaparCampo(const string& s) {
-        string out;
-        for (size_t i = 0; i < s.size(); ++i) {
-            if (s[i] == '\\' && i + 1 < s.size()) {
-                if (s[i + 1] == '\\') { out += '\\'; ++i; }
-                else if (s[i + 1] == 'p') { out += '|'; ++i; }
-                else if (s[i + 1] == 's') { out += ';'; ++i; }
-                else if (s[i + 1] == 'c') { out += ','; ++i; }
-                else if (s[i + 1] == 't') { out += '~'; ++i; }
-                else out += s[i];
-            } else {
-                out += s[i];
-            }
-        }
-        return out;
-    }
 
 public:
     RegistroEscolar(string t = "asignatura",
@@ -69,50 +113,30 @@ public:
     const vector<string>& getDescripciones() const { return descripciones; }
 
     void agregarDescripcion(const string& desc) {
-        string limp = limpiar(desc);
+        string limp = UtilXML::limpiar(desc);
         if (!limp.empty()) {
             descripciones.push_back(limp);
         }
     }
 
-    // Formato interno: tipo|etiqueta|desc1~desc2~desc3
-    string serializar() const {
-        string tipoFinal = limpiar(tipo).empty() ? "asignatura" : limpiar(tipo);
-        string etqFinal = limpiar(etiqueta).empty() ? "sin_etiqueta" : limpiar(etiqueta);
+    string aXML(int indent = 12) const {
+        string pad(indent, ' ');
+        string inner(indent + 4, ' ');
+        string descPad(indent + 8, ' ');
 
-        string out = escaparCampo(tipoFinal) + "|" + escaparCampo(etqFinal) + "|";
-        for (size_t i = 0; i < descripciones.size(); ++i) {
-            out += escaparCampo(descripciones[i]);
-            if (i + 1 < descripciones.size()) out += "~";
+        string tipoFinal = UtilXML::limpiar(tipo).empty() ? "asignatura" : UtilXML::limpiar(tipo);
+        string etqFinal = UtilXML::limpiar(etiqueta).empty() ? "sin_etiqueta" : UtilXML::limpiar(etiqueta);
+
+        string xml = pad + "<registro_escolar>\n";
+        xml += inner + "<tipo>" + UtilXML::escaparXML(tipoFinal) + "</tipo>\n";
+        xml += inner + "<etiqueta>" + UtilXML::escaparXML(etqFinal) + "</etiqueta>\n";
+        xml += inner + "<descripciones>\n";
+        for (const auto& d : descripciones) {
+            xml += descPad + "<descripcion>" + UtilXML::escaparXML(d) + "</descripcion>\n";
         }
-        return out;
-    }
-
-    static RegistroEscolar deserializar(const string& texto) {
-        stringstream ss(texto);
-        string tStr, etqStr, descsStr;
-        getline(ss, tStr, '|');
-        getline(ss, etqStr, '|');
-        getline(ss, descsStr, '|');
-
-        string tLimp = limpiar(desescaparCampo(tStr));
-        string eLimp = limpiar(desescaparCampo(etqStr));
-
-        vector<string> descs;
-        stringstream ssDesc(descsStr);
-        string itemDesc;
-        while (getline(ssDesc, itemDesc, '~')) {
-            string dLimp = limpiar(desescaparCampo(itemDesc));
-            if (!dLimp.empty()) {
-                descs.push_back(dLimp);
-            }
-        }
-
-        return RegistroEscolar(
-            tLimp.empty() ? "asignatura" : tLimp,
-            eLimp.empty() ? "sin_etiqueta" : eLimp,
-            move(descs)
-        );
+        xml += inner + "</descripciones>\n";
+        xml += pad + "</registro_escolar>\n";
+        return xml;
     }
 
     void mostrar() const {
@@ -200,69 +224,83 @@ public:
         cout << " ]\n";
     }
 
-    string aCSV() const {
-        string linea = to_string(id) + "," + nombre + ",";
-        for (size_t i = 0; i < calificaciones.size(); ++i) {
-            linea += to_string(calificaciones[i]);
-            if (i + 1 < calificaciones.size()) linea += ";";
-        }
+    string aXML() const {
+        string xml = "    <elemento_escolar>\n";
+        xml += "        <id>" + to_string(id) + "</id>\n";
+        xml += "        <nombre>" + UtilXML::escaparXML(nombre) + "</nombre>\n";
 
-        linea += ",";
+        xml += "        <calificaciones>\n";
+        for (int c : calificaciones) {
+            xml += "            <calificacion>" + to_string(c) + "</calificacion>\n";
+        }
+        xml += "        </calificaciones>\n";
+
+        xml += "        <registros_escolares>\n";
         if (ptrRegistros != nullptr) {
-            for (size_t i = 0; i < ptrRegistros->size(); ++i) {
-                linea += (*ptrRegistros)[i].serializar();
-                if (i + 1 < ptrRegistros->size()) linea += ";";
+            for (const auto& reg : *ptrRegistros) {
+                xml += reg.aXML(12);
             }
         }
-        return linea;
+        xml += "        </registros_escolares>\n";
+
+        xml += "    </elemento_escolar>\n";
+        return xml;
     }
 };
 
 // ==========================================
 // 3. INTERFAZ DE PERSISTENCIA - OCP / DIP
 // ==========================================
-class IPersistenciaEscuelaCSV {
+class IPersistenciaEscuelaXML {
 public:
     virtual void escribir(const string& ruta, const vector<shared_ptr<ElementoEscolarADT>>& elementos) = 0;
     virtual vector<shared_ptr<ElementoEscolarADT>> leer(const string& ruta) = 0;
-    virtual ~IPersistenciaEscuelaCSV() = default;
+    virtual ~IPersistenciaEscuelaXML() = default;
 };
 
 // ==========================================
 // 4. IMPLEMENTACION CONCRETA - LSP / SRP
 // ==========================================
-class ManejadorEscuelaCSV : public IPersistenciaEscuelaCSV {
+class ManejadorEscuelaXML : public IPersistenciaEscuelaXML {
 private:
-    static string limpiarRetornoCarro(string s) {
-        s.erase(remove(s.begin(), s.end(), '\r'), s.end());
-        return s;
-    }
+    static RegistroEscolar parsearRegistroEscolar(const string& bloque) {
+        string tipo = UtilXML::extraerTag(bloque, "tipo");
+        if (tipo.empty()) tipo = "asignatura";
 
-    static bool parsearEnteroSeguro(const string& texto, int& salida) {
-        if (texto.empty()) return false;
-        try {
-            size_t idx = 0;
-            int val = stoi(texto, &idx);
-            if (idx != texto.size()) return false;
-            salida = val;
-            return true;
-        } catch (...) {
-            return false;
+        string etiqueta = UtilXML::extraerTag(bloque, "etiqueta");
+        if (etiqueta.empty()) etiqueta = "sin_etiqueta";
+
+        RegistroEscolar reg(tipo, etiqueta);
+
+        string bloqueDesc = UtilXML::extraerTag(bloque, "descripciones");
+        size_t pos = 0;
+        while ((pos = bloqueDesc.find("<descripcion>", pos)) != string::npos) {
+            size_t fin = bloqueDesc.find("</descripcion>", pos);
+            if (fin == string::npos) break;
+            string texto = UtilXML::desescaparXML(
+                bloqueDesc.substr(pos + 13, fin - (pos + 13))
+            );
+            reg.agregarDescripcion(texto);
+            pos = fin + 14;
         }
+
+        return reg;
     }
 
 public:
     void escribir(const string& ruta, const vector<shared_ptr<ElementoEscolarADT>>& elementos) override {
         ofstream archivo(ruta);
         if (!archivo.is_open()) {
-            cout << "\n[ERROR] No se pudo abrir el archivo para escritura en: " << ruta << "\n";
+            cout << "\n[ERROR] No se pudo abrir el archivo XML para escritura en: " << ruta << "\n";
             return;
         }
 
-        archivo << "ID,Nombre,Calificaciones,RegistrosEscolares\n";
+        archivo << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+        archivo << "<sistema_escolar>\n";
         for (const auto& elem : elementos) {
-            archivo << elem->aCSV() << "\n";
+            archivo << elem->aXML();
         }
+        archivo << "</sistema_escolar>\n";
 
         archivo.close();
         cout << "\n[EXITO] Datos escolares guardados correctamente en: " << ruta << "\n";
@@ -273,53 +311,62 @@ public:
         ifstream archivo(ruta);
 
         if (!archivo.is_open()) {
-            cout << "\n[AVISO] No se encontro un archivo previo en la ruta. Se iniciara vacio.\n";
+            cout << "\n[AVISO] No se encontro un archivo XML previo en la ruta. Se iniciara vacio.\n";
             return elementos;
         }
 
-        string linea;
-        getline(archivo, linea); // Omitir cabecera
+        stringstream buffer;
+        buffer << archivo.rdbuf();
+        archivo.close();
+        string contenido = buffer.str();
 
-        while (getline(archivo, linea)) {
-            linea = limpiarRetornoCarro(linea);
-            if (linea.empty()) continue;
+        size_t posElem = 0;
+        while ((posElem = contenido.find("<elemento_escolar>", posElem)) != string::npos) {
+            size_t finElem = contenido.find("</elemento_escolar>", posElem);
+            if (finElem == string::npos) break;
 
-            stringstream ss(linea);
-            string idStr, nombre, bloqueCals, bloqueRegs;
+            string bloqueElem = contenido.substr(posElem + 18, finElem - (posElem + 18));
 
-            if (!getline(ss, idStr, ',') || idStr.empty()) continue;
             int id = 0;
-            if (!parsearEnteroSeguro(idStr, id)) continue;
+            if (!UtilXML::parsearEnteroSeguro(UtilXML::extraerTag(bloqueElem, "id"), id)) {
+                posElem = finElem + 19;
+                continue;
+            }
 
-            if (!getline(ss, nombre, ',')) continue;
-            getline(ss, bloqueCals, ',');
-            getline(ss, bloqueRegs, ',');
+            string nombre = UtilXML::extraerTag(bloqueElem, "nombre");
 
             vector<int> cals;
-            stringstream ssCals(bloqueCals);
-            string dato;
-            while (getline(ssCals, dato, ';')) {
+            string bloqueCals = UtilXML::extraerTag(bloqueElem, "calificaciones");
+            size_t posCal = 0;
+            while ((posCal = bloqueCals.find("<calificacion>", posCal)) != string::npos) {
+                size_t finCal = bloqueCals.find("</calificacion>", posCal);
+                if (finCal == string::npos) break;
                 int val = 0;
-                if (parsearEnteroSeguro(dato, val)) {
+                if (UtilXML::parsearEnteroSeguro(
+                        bloqueCals.substr(posCal + 14, finCal - (posCal + 14)), val)) {
                     cals.push_back(val);
                 }
+                posCal = finCal + 15;
             }
 
             vector<RegistroEscolar> regs;
-            stringstream ssRegs(bloqueRegs);
-            string itemReg;
-            while (getline(ssRegs, itemReg, ';')) {
-                if (!itemReg.empty()) {
-                    regs.push_back(RegistroEscolar::deserializar(itemReg));
-                }
+            string bloqueRegs = UtilXML::extraerTag(bloqueElem, "registros_escolares");
+            size_t posReg = 0;
+            while ((posReg = bloqueRegs.find("<registro_escolar>", posReg)) != string::npos) {
+                size_t finReg = bloqueRegs.find("</registro_escolar>", posReg);
+                if (finReg == string::npos) break;
+                regs.push_back(parsearRegistroEscolar(
+                    bloqueRegs.substr(posReg + 18, finReg - (posReg + 18))
+                ));
+                posReg = finReg + 19;
             }
 
             elementos.push_back(
-                make_shared<ElementoEscolarADT>(id, nombre, move(cals), move(regs))
+                make_shared<ElementoEscolarADT>(id, move(nombre), move(cals), move(regs))
             );
+            posElem = finElem + 19;
         }
 
-        archivo.close();
         cout << "\n[EXITO] Datos escolares leidos y recuperados desde: " << ruta << "\n";
         return elementos;
     }
@@ -331,10 +378,10 @@ public:
 class GestorEscuela {
 private:
     vector<shared_ptr<ElementoEscolarADT>> coleccionDatos;
-    unique_ptr<IPersistenciaEscuelaCSV> persistencia;
+    unique_ptr<IPersistenciaEscuelaXML> persistencia;
 
 public:
-    GestorEscuela(unique_ptr<IPersistenciaEscuelaCSV> pers) : persistencia(move(pers)) {}
+    GestorEscuela(unique_ptr<IPersistenciaEscuelaXML> pers) : persistencia(move(pers)) {}
 
     bool estaVacia() const {
         return coleccionDatos.empty();
@@ -491,20 +538,20 @@ namespace {
 // 6. FUNCION PRINCIPAL CON MENU INTERACTIVO
 // ==========================================
 int main() {
-    unique_ptr<IPersistenciaEscuelaCSV> servicioCSV = make_unique<ManejadorEscuelaCSV>();
-    GestorEscuela sistema(move(servicioCSV));
+    unique_ptr<IPersistenciaEscuelaXML> servicioXML = make_unique<ManejadorEscuelaXML>();
+    GestorEscuela sistema(move(servicioXML));
 
     int opcion;
-    string nombreArchivo = "escuela_adt.csv";
+    string nombreArchivo = "escuela_adt.xml";
 
     do {
         cout << "\n=========================================\n";
-        cout << "      MENU - SISTEMA ESCOLAR (CSV)       \n";
+        cout << "      MENU - SISTEMA ESCOLAR (XML)       \n";
         cout << "=========================================\n";
         cout << "1. Agregar nuevo registro escolar (ADT)\n";
         cout << "2. Ver registros en memoria RAM\n";
-        cout << "3. Guardar registros en archivo CSV (Disco)\n";
-        cout << "4. Cargar registros desde archivo CSV (Disco)\n";
+        cout << "3. Guardar registros en archivo XML (Disco)\n";
+        cout << "4. Cargar registros desde archivo XML (Disco)\n";
         cout << "5. Editar registro existente en memoria RAM\n";
         cout << "6. Eliminar registro existente en memoria RAM\n";
         cout << "7. Salir\n";
