@@ -19,7 +19,7 @@
 ## Índice
 
 1. [Desarrollo](#1-desarrollo)
-2. [Prácticas ]
+2. [Prácticas ](#2-practicas)
 3. [Compilación y ejecución](#3-compilación-y-ejecución)
 4. [Conclusiones](#4-conclusiones)
 5. [Referencias](#5-referencias)
