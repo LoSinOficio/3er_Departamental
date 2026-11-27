@@ -59,7 +59,7 @@ El objetivo principal del proyecto es reforzar el diseño de software y la manip
 
 | Práctica | Tema | Archivo | Persistencia |
 | --- | --- | --- | --- |
-| 1 | ADT y persistencia con archivos XML | [Practica_1.cpp](Practica_1.cpp) | XML |
+| 1 | Sistema escolar mediante ADT | [Practica_1.cpp](Practica_1.cpp) | CSV |
 | 2 | ADT y persistencia con archivos TXT | [Practica_2.cpp](Practica_2.cpp) | TXT |
 | 3 | ADT y persistencia con archivos JSON | [Practica_3.cpp](Practica_3.cpp) | JSON |
 | 5 | Grafos y paths | [practica5_gr.cpp](practica5_gr.cpp) | JSON |
@@ -69,7 +69,7 @@ El objetivo principal del proyecto es reforzar el diseño de software y la manip
 
 ### 2.1 Persistencia de datos
 
-Las prácticas 1, 2, 3 y 11 trabajan con elementos encapsulados en una clase ADT y permiten administrar información en archivos XML, TXT, JSON y CSV. Incluyen operaciones para agregar, listar, editar y eliminar registros mediante un menú interactivo.
+Las prácticas trabajan con elementos encapsulados en clases ADT y permiten administrar información en archivos XML, TXT, JSON y CSV. Las prácticas 1 y 11 contienen sistemas escolares basados en registros; permiten agregar, listar, editar y eliminar información en memoria y guardarla o cargarla desde disco. Las demás prácticas usan formatos específicos para conservar sus estructuras y datos.
 
 ### 2.2 Grafos
 
@@ -80,7 +80,7 @@ La práctica 5 administra múltiples grafos. Cada grafo contiene:
 - Un `path` construido como una lista de nodos.
 - Persistencia de todos los grafos en `grafos_cuaderno.json`.
 
-Permite crear y seleccionar grafos, editar tramos, administrar vértices y rutas, guardar y cargar datos.
+Permite crear y seleccionar grafos, administrar vértices y rutas, guardar y cargar datos. Además, el menú incluye las opciones «Editar elemento existente en memoria RAM» y «Eliminar elemento existente en memoria RAM», con las que se pueden modificar o retirar vértices y tramos del grafo activo.
 
 ### 2.3 Digrafos
 
@@ -116,6 +116,16 @@ public:
 ```
 
 Las operaciones de almacenamiento se abstraen mediante interfaces y manejadores específicos. De esta forma, el programa puede guardar y recuperar registros sin acoplar directamente la lógica principal a un formato de archivo concreto.
+
+### Operaciones disponibles en memoria
+
+Los menúes interactivos incluyen operaciones CRUD según la estructura:
+
+- Agregar nuevos registros, vértices, tramos, arcos o nodos.
+- Consultar y mostrar los elementos registrados.
+- Editar elementos mediante «Editar elemento existente en memoria RAM».
+- Eliminar elementos mediante «Eliminar elemento existente en memoria RAM».
+- Guardar el estado actual y cargarlo posteriormente desde el archivo correspondiente.
 
 ---
 
@@ -163,7 +173,7 @@ Las prácticas de grafos, digrafos y árboles permitieron aplicar estructuras no
 
 ## 5. Referencias
 
-- [Practica_1.cpp](Practica_1.cpp): persistencia XML.
+- [Practica_1.cpp](Practica_1.cpp): sistema escolar con persistencia CSV.
 - [Practica_2.cpp](Practica_2.cpp): persistencia TXT.
 - [Practica_3.cpp](Practica_3.cpp): persistencia JSON.
 - [practica5_gr.cpp](practica5_gr.cpp): grafos y paths.
