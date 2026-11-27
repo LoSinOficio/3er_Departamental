@@ -7,6 +7,7 @@
 #include <string>
 #include <memory>
 #include <cstring>
+#include <limits>
 
 using namespace std;
 
@@ -81,12 +82,6 @@ public:
     string getNombre() const { return nombreDigrafo; }
     void setNombre(const string& nombre) { nombreDigrafo = nombre; }
 
-    void limpiar() {
-        verticesV.clear();
-        arcosA.clear();
-        path.clear();
-    }
-
     bool existeVertice(const string& v) const {
         for (const auto& item : verticesV) {
             if (item == v) return true;
@@ -138,10 +133,6 @@ public:
         agregarVertice(ni);
         agregarVertice(nf);
         path.emplace_back(ni, nf, a, tiempo, cost);
-    }
-
-    void limpiarPath() {
-        path.clear();
     }
 
     const vector<string>& getVerticesV() const { return verticesV; }
@@ -242,6 +233,34 @@ private:
         return s.substr(ini, fin - ini + 1);
     }
 
+    static bool parsearEnteroSeguro(const string& texto, int& salida) {
+        string limp = limpiar(texto);
+        if (limp.empty()) return false;
+        try {
+            size_t idx = 0;
+            int val = stoi(limp, &idx);
+            if (idx != limp.size()) return false;
+            salida = val;
+            return true;
+        } catch (...) {
+            return false;
+        }
+    }
+
+    static bool parsearDoubleSeguro(const string& texto, double& salida) {
+        string limp = limpiar(texto);
+        if (limp.empty()) return false;
+        try {
+            size_t idx = 0;
+            double val = stod(limp, &idx);
+            if (idx != limp.size()) return false;
+            salida = val;
+            return true;
+        } catch (...) {
+            return false;
+        }
+    }
+
     static string extraerValorCampoString(const string& bloque, const string& clave) {
         string patron = "\"" + clave + "\"";
         size_t pos = bloque.find(patron);
@@ -276,9 +295,11 @@ private:
         string tiempoStr = extraerValorCampoNumero(obj, "tiempo");
         string costStr = extraerValorCampoNumero(obj, "cost");
 
+        int tiempoVal = 0;
+        double costVal = 0.0;
         if (!a.empty()) arco.setEtiqueta(a);
-        if (!tiempoStr.empty()) arco.setTiempo(stoi(tiempoStr));
-        if (!costStr.empty()) arco.setCost(stod(costStr));
+        if (parsearEnteroSeguro(tiempoStr, tiempoVal)) arco.setTiempo(tiempoVal);
+        if (parsearDoubleSeguro(costStr, costVal)) arco.setCost(costVal);
         return arco;
     }
 
@@ -569,12 +590,6 @@ public:
         it->second.mostrarEstructura();
     }
 
-    void limpiarPathActivo() {
-        if (!validarActivo()) return;
-        digrafos[digrafoActivo].limpiarPath();
-        cout << "\n[INFO] Ruta path vaciada en " << digrafoActivo << ".\n";
-    }
-
     void guardarJSON(const string& ruta) {
         if (digrafos.empty()) {
             cout << "\n[AVISO] No hay digrafos para guardar.\n";
@@ -593,6 +608,37 @@ public:
     }
 };
 
+namespace {
+    int leerEntero(const string& prompt) {
+        int val;
+        while (true) {
+            cout << prompt;
+            if (cin >> val) return val;
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "[ERROR] Ingresa un numero entero valido.\n";
+        }
+    }
+
+    double leerDouble(const string& prompt) {
+        double val;
+        while (true) {
+            cout << prompt;
+            if (cin >> val) return val;
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "[ERROR] Ingresa un numero valido.\n";
+        }
+    }
+
+    string leerToken(const string& prompt) {
+        string token;
+        cout << prompt;
+        cin >> token;
+        return token;
+    }
+}
+
 // ==========================================
 // 6. MENU INTERACTIVO
 // ==========================================
@@ -607,163 +653,137 @@ int main() {
         cout << "    Digrafo activo: " << (app.getDigrafoActivo().empty() ? "Ninguno" : app.getDigrafoActivo()) << "\n";
         cout << "=========================================================\n";
         cout << "1. Crear o seleccionar digrafo activo\n";
-        cout << "2. Eliminar un digrafo\n";
-        cout << "3. Agregar vertice a V (en digrafo activo)\n";
-        cout << "4. Eliminar vertice de V (en digrafo activo)\n";
-        cout << "5. Agregar arco dirigido a A (ni -> nf, a, tiempo, cost)\n";
-        cout << "6. Editar arco dirigido de A\n";
-        cout << "7. Eliminar arco dirigido de A\n";
-        cout << "8. Agregar arco a path (list<Arco>)\n";
-        cout << "9. Elegir que digrafo quieres ver\n";
-        cout << "10. Guardar todos los digrafos en archivo JSON\n";
-        cout << "11. Cargar digrafos desde archivo JSON\n";
-        cout << "12. Limpiar path del digrafo activo\n";
-        cout << "13. Salir\n";
-        cout << "Selecciona una opcion: ";
-        cin >> opcion;
+        cout << "2. Agregar vertice a V (en digrafo activo)\n";
+        cout << "3. Agregar arco dirigido a A (ni -> nf, a, tiempo, cost)\n";
+        cout << "4. Agregar arco a path (list<Arco>)\n";
+        cout << "5. Elegir que digrafo quieres ver\n";
+        cout << "6. Guardar todos los digrafos en archivo JSON\n";
+        cout << "7. Cargar digrafos desde archivo JSON\n";
+        cout << "8. Editar elemento existente en memoria RAM\n";
+        cout << "9. Eliminar elemento existente en memoria RAM\n";
+        cout << "10. Salir\n";
+        opcion = leerEntero("Selecciona una opcion: ");
 
         switch (opcion) {
             case 1: {
                 app.listarDigrafos();
-                string nombre;
-                cout << "Escribe el nombre del digrafo a crear o activar: ";
-                cin >> nombre;
+                string nombre = leerToken("Escribe el nombre del digrafo a crear o activar: ");
                 app.crearOSeleccionarDigrafo(nombre);
                 break;
             }
             case 2: {
-                if (!app.hayDigrafos()) {
-                    cout << "\n[AVISO] No hay digrafos para eliminar.\n";
-                    break;
+                if (!app.validarActivo()) break;
+                int cant = leerEntero("Cuantos vertices deseas agregar?: ");
+                if (cant < 0) cant = 0;
+                for (int i = 0; i < cant; ++i) {
+                    string v = leerToken("Vertice [" + to_string(i + 1) + "] (sin espacios): ");
+                    app.nuevoVertice(v);
                 }
-                app.listarDigrafos();
-                string nombre;
-                cout << "Escribe el nombre del digrafo a eliminar: ";
-                cin >> nombre;
-                app.eliminarDigrafo(nombre);
                 break;
             }
             case 3: {
                 if (!app.validarActivo()) break;
-                int cant;
-                cout << "Cuantos vertices deseas agregar?: ";
-                cin >> cant;
+                int cant = leerEntero("Cuantos arcos dirigidos deseas agregar a A?: ");
+                if (cant < 0) cant = 0;
                 for (int i = 0; i < cant; ++i) {
-                    string v;
-                    cout << "Vertice [" << i + 1 << "] (sin espacios): ";
-                    cin >> v;
-                    app.nuevoVertice(v);
+                    string ni = leerToken("Arco [" + to_string(i + 1) + "] - ni (origen): ");
+                    string nf = leerToken("Arco [" + to_string(i + 1) + "] - nf (destino): ");
+                    string a = leerToken("a (etiqueta max 3 chars): ");
+                    int tiempo = leerEntero("tiempo (int): ");
+                    double cost = leerDouble("cost (double): ");
+                    app.nuevoArco(ni, nf, a, tiempo, cost);
                 }
                 break;
             }
             case 4: {
                 if (!app.validarActivo()) break;
-                string v;
-                cout << "Nombre del vertice a eliminar de V: ";
-                cin >> v;
-                app.quitarVertice(v);
-                break;
-            }
-            case 5: {
-                if (!app.validarActivo()) break;
-                int cant;
-                cout << "Cuantos arcos dirigidos deseas agregar a A?: ";
-                cin >> cant;
+                int cant = leerEntero("Cuantos arcos deseas agregar a path?: ");
+                if (cant < 0) cant = 0;
                 for (int i = 0; i < cant; ++i) {
-                    string ni, nf, a;
-                    int tiempo;
-                    double cost;
-                    cout << "Arco [" << i + 1 << "] - ni (origen) y nf (destino): ";
-                    cin >> ni >> nf;
-                    cout << "a (etiqueta max 3 chars): ";
-                    cin >> a;
-                    cout << "tiempo (int) y cost (double): ";
-                    cin >> tiempo >> cost;
-                    app.nuevoArco(ni, nf, a, tiempo, cost);
-                }
-                break;
-            }
-            case 6: {
-                if (!app.validarActivo() || app.cantidadArcosActivo() == 0) {
-                    cout << "\n[AVISO] No hay arcos dirigidos para editar en el digrafo activo.\n";
-                    break;
-                }
-                app.listarArcosActivo();
-                size_t num;
-                cout << "Numero de arco a editar: ";
-                cin >> num;
-
-                string ni, nf, a;
-                int tiempo;
-                double cost;
-                cout << "Nuevo ni (origen) y nf (destino): ";
-                cin >> ni >> nf;
-                cout << "Nueva etiqueta a (max 3 chars): ";
-                cin >> a;
-                cout << "Nuevo tiempo (int) y cost (double): ";
-                cin >> tiempo >> cost;
-                app.modificarArco(num - 1, ni, nf, a, tiempo, cost);
-                break;
-            }
-            case 7: {
-                if (!app.validarActivo() || app.cantidadArcosActivo() == 0) {
-                    cout << "\n[AVISO] No hay arcos dirigidos para eliminar en el digrafo activo.\n";
-                    break;
-                }
-                app.listarArcosActivo();
-                size_t num;
-                cout << "Numero de arco a eliminar: ";
-                cin >> num;
-                app.quitarArco(num - 1);
-                break;
-            }
-            case 8: {
-                if (!app.validarActivo()) break;
-                int cant;
-                cout << "Cuantos arcos deseas agregar a path?: ";
-                cin >> cant;
-                for (int i = 0; i < cant; ++i) {
-                    string ni, nf, a;
-                    int tiempo;
-                    double cost;
-                    cout << "Paso [" << i + 1 << "] - ni (origen) y nf (destino): ";
-                    cin >> ni >> nf;
-                    cout << "a (etiqueta max 3 chars): ";
-                    cin >> a;
-                    cout << "tiempo (int) y cost (double): ";
-                    cin >> tiempo >> cost;
+                    string ni = leerToken("Paso [" + to_string(i + 1) + "] - ni (origen): ");
+                    string nf = leerToken("Paso [" + to_string(i + 1) + "] - nf (destino): ");
+                    string a = leerToken("a (etiqueta max 3 chars): ");
+                    int tiempo = leerEntero("tiempo (int): ");
+                    double cost = leerDouble("cost (double): ");
                     app.nuevoArcoPath(ni, nf, a, tiempo, cost);
                 }
                 break;
             }
-            case 9: {
+            case 5: {
                 if (!app.hayDigrafos()) {
                     cout << "\n[AVISO] No hay digrafos registrados para mostrar.\n";
                     break;
                 }
                 app.listarDigrafos();
-                string elegido;
-                cout << "Que digrafo quieres ver? Escribe su nombre: ";
-                cin >> elegido;
+                string elegido = leerToken("Que digrafo quieres ver? Escribe su nombre: ");
                 app.mostrarDigrafoElegido(elegido);
                 break;
             }
-            case 10:
+            case 6:
                 app.guardarJSON(archivoJSON);
                 break;
-            case 11:
+            case 7:
                 app.cargarJSON(archivoJSON);
                 break;
-            case 12:
-                app.limpiarPathActivo();
+            case 8: {
+                if (!app.validarActivo() || app.cantidadArcosActivo() == 0) {
+                    cout << "\n[AVISO] No hay arcos dirigidos para editar en el digrafo activo.\n";
+                    break;
+                }
+                app.listarArcosActivo();
+                int num = leerEntero("Numero de arco a editar: ");
+                if (num < 1 || static_cast<size_t>(num) > app.cantidadArcosActivo()) {
+                    cout << "\n[ERROR] Numero de arco no valido.\n";
+                    break;
+                }
+
+                string ni = leerToken("Nuevo ni (origen): ");
+                string nf = leerToken("Nuevo nf (destino): ");
+                string a = leerToken("Nueva etiqueta a (max 3 chars): ");
+                int tiempo = leerEntero("Nuevo tiempo (int): ");
+                double cost = leerDouble("Nuevo cost (double): ");
+                app.modificarArco(static_cast<size_t>(num - 1), ni, nf, a, tiempo, cost);
                 break;
-            case 13:
+            }
+            case 9: {
+                if (!app.hayDigrafos()) {
+                    cout << "\n[AVISO] No hay digrafos para eliminar.\n";
+                    break;
+                }
+                int tipo = leerEntero("Que deseas eliminar?\n1. Digrafo\n2. Vertice del digrafo activo\n3. Arco dirigido del digrafo activo\nSelecciona una opcion: ");
+
+                if (tipo == 1) {
+                    app.listarDigrafos();
+                    string nombre = leerToken("Escribe el nombre del digrafo a eliminar: ");
+                    app.eliminarDigrafo(nombre);
+                } else if (tipo == 2) {
+                    if (!app.validarActivo()) break;
+                    string v = leerToken("Nombre del vertice a eliminar de V: ");
+                    app.quitarVertice(v);
+                } else if (tipo == 3) {
+                    if (!app.validarActivo() || app.cantidadArcosActivo() == 0) {
+                        cout << "\n[AVISO] No hay arcos dirigidos para eliminar en el digrafo activo.\n";
+                        break;
+                    }
+                    app.listarArcosActivo();
+                    int num = leerEntero("Numero de arco a eliminar: ");
+                    if (num < 1 || static_cast<size_t>(num) > app.cantidadArcosActivo()) {
+                        cout << "\n[ERROR] Numero de arco no valido.\n";
+                        break;
+                    }
+                    app.quitarArco(static_cast<size_t>(num - 1));
+                } else {
+                    cout << "\n[ERROR] Opcion no valida.\n";
+                }
+                break;
+            }
+            case 10:
                 cout << "\nSaliendo del programa. Hasta luego!\n";
                 break;
             default:
                 cout << "\n[ERROR] Opcion no valida.\n";
         }
-    } while (opcion != 13);
+    } while (opcion != 10);
 
     return 0;
 }
