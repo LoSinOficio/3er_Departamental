@@ -6,6 +6,7 @@
 #include <string>
 #include <memory>
 #include <cstring>
+#include <limits>
 
 using namespace std;
 
@@ -122,7 +123,7 @@ public:
     bool establecerRaiz(const string& val, const string& etq = "rai", double peso = 0.0) {
         if (val.empty()) return false;
         if (!nodos.empty()) {
-            return false; // Ya existe una estructura; usa editar o limpiar primero
+            return false;
         }
         raiz = val;
         nodos.emplace_back(val, "", etq, peso);
@@ -187,11 +188,6 @@ public:
             }
         }
         return true;
-    }
-
-    void limpiar() {
-        raiz.clear();
-        nodos.clear();
     }
 
     const vector<NodoArbol>& getNodos() const { return nodos; }
@@ -265,6 +261,20 @@ private:
         return s.substr(ini, fin - ini + 1);
     }
 
+    static bool parsearDoubleSeguro(const string& texto, double& salida) {
+        string limp = limpiar(texto);
+        if (limp.empty()) return false;
+        try {
+            size_t idx = 0;
+            double val = stod(limp, &idx);
+            if (idx != limp.size()) return false;
+            salida = val;
+            return true;
+        } catch (...) {
+            return false;
+        }
+    }
+
     static string extraerValorCampoString(const string& bloque, const string& clave) {
         string patron = "\"" + clave + "\"";
         size_t pos = bloque.find(patron);
@@ -298,8 +308,9 @@ private:
         string etq = extraerValorCampoString(obj, "etiqueta");
         string pesoStr = extraerValorCampoNumero(obj, "peso");
 
+        double pesoVal = 0.0;
         if (!etq.empty()) n.setEtiqueta(etq);
-        if (!pesoStr.empty()) n.setPeso(stod(pesoStr));
+        if (parsearDoubleSeguro(pesoStr, pesoVal)) n.setPeso(pesoVal);
         return n;
     }
 
@@ -550,6 +561,37 @@ public:
     }
 };
 
+namespace {
+    int leerEntero(const string& prompt) {
+        int val;
+        while (true) {
+            cout << prompt;
+            if (cin >> val) return val;
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "[ERROR] Ingresa un numero entero valido.\n";
+        }
+    }
+
+    double leerDouble(const string& prompt) {
+        double val;
+        while (true) {
+            cout << prompt;
+            if (cin >> val) return val;
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "[ERROR] Ingresa un numero valido.\n";
+        }
+    }
+
+    string leerToken(const string& prompt) {
+        string token;
+        cout << prompt;
+        cin >> token;
+        return token;
+    }
+}
+
 // ==========================================
 // 6. MENU INTERACTIVO
 // ==========================================
@@ -564,117 +606,93 @@ int main() {
         cout << "      Arbol activo: " << (app.getArbolActivo().empty() ? "Ninguno" : app.getArbolActivo()) << "\n";
         cout << "=========================================================\n";
         cout << "1. Crear o seleccionar arbol activo\n";
-        cout << "2. Eliminar un arbol\n";
-        cout << "3. Establecer nodo raiz (si el arbol esta vacio)\n";
-        cout << "4. Agregar nodo hijo a un padre existente\n";
-        cout << "5. Editar un nodo existente\n";
-        cout << "6. Eliminar nodo y su subarbol\n";
-        cout << "7. Elegir que arbol quieres ver\n";
-        cout << "8. Guardar todos los arboles en archivo JSON\n";
-        cout << "9. Cargar arboles desde archivo JSON\n";
-        cout << "10. Salir\n";
-        cout << "Selecciona una opcion: ";
-        cin >> opcion;
+        cout << "2. Establecer nodo raiz (si el arbol esta vacio)\n";
+        cout << "3. Agregar nodo hijo a un padre existente\n";
+        cout << "4. Elegir que arbol quieres ver\n";
+        cout << "5. Guardar todos los arboles en archivo JSON\n";
+        cout << "6. Cargar arboles desde archivo JSON\n";
+        cout << "7. Editar elemento existente en memoria RAM\n";
+        cout << "8. Eliminar elemento existente en memoria RAM\n";
+        cout << "9. Salir\n";
+        opcion = leerEntero("Selecciona una opcion: ");
 
         switch (opcion) {
             case 1: {
                 app.listarArboles();
-                string nombre;
-                cout << "Escribe el nombre del arbol a crear o activar: ";
-                cin >> nombre;
+                string nombre = leerToken("Escribe el nombre del arbol a crear o activar: ");
                 app.crearOSeleccionarArbol(nombre);
                 break;
             }
             case 2: {
-                if (!app.hayArboles()) {
-                    cout << "\n[AVISO] No hay arboles para eliminar.\n";
-                    break;
-                }
-                app.listarArboles();
-                string nombre;
-                cout << "Escribe el nombre del arbol a eliminar: ";
-                cin >> nombre;
-                app.eliminarArbol(nombre);
+                if (!app.validarActivo()) break;
+                string val = leerToken("Valor/nombre de la raiz (sin espacios): ");
+                string etq = leerToken("Etiqueta (max 3 chars): ");
+                double peso = leerDouble("Peso inicial (double): ");
+                app.ponerRaiz(val, etq, peso);
                 break;
             }
             case 3: {
                 if (!app.validarActivo()) break;
-                string val, etq;
-                double peso;
-                cout << "Valor/nombre de la raiz (sin espacios): ";
-                cin >> val;
-                cout << "Etiqueta (max 3 chars): ";
-                cin >> etq;
-                cout << "Peso inicial (double): ";
-                cin >> peso;
-                app.ponerRaiz(val, etq, peso);
-                break;
-            }
-            case 4: {
-                if (!app.validarActivo()) break;
-                string padre, hijo, etq;
-                double peso;
-                cout << "Nodo padre existente: ";
-                cin >> padre;
-                cout << "Nuevo nodo hijo (sin espacios): ";
-                cin >> hijo;
-                cout << "Etiqueta de la rama (max 3 chars): ";
-                cin >> etq;
-                cout << "Peso de la rama (double): ";
-                cin >> peso;
+                string padre = leerToken("Nodo padre existente: ");
+                string hijo = leerToken("Nuevo nodo hijo (sin espacios): ");
+                string etq = leerToken("Etiqueta de la rama (max 3 chars): ");
+                double peso = leerDouble("Peso de la rama (double): ");
                 app.insertarHijo(padre, hijo, etq, peso);
                 break;
             }
-            case 5: {
-                if (!app.validarActivo()) break;
-                app.listarNodosActivo();
-                string actual, nuevoVal, etq;
-                double peso;
-                cout << "Valor del nodo a editar: ";
-                cin >> actual;
-                cout << "Nuevo valor del nodo: ";
-                cin >> nuevoVal;
-                cout << "Nueva etiqueta (max 3 chars): ";
-                cin >> etq;
-                cout << "Nuevo peso (double): ";
-                cin >> peso;
-                app.modificarNodo(actual, nuevoVal, etq, peso);
-                break;
-            }
-            case 6: {
-                if (!app.validarActivo()) break;
-                app.listarNodosActivo();
-                string val;
-                cout << "Valor del nodo a eliminar (junto con sus hijos): ";
-                cin >> val;
-                app.quitarNodoYSubarbol(val);
-                break;
-            }
-            case 7: {
+            case 4: {
                 if (!app.hayArboles()) {
                     cout << "\n[AVISO] No hay arboles registrados para mostrar.\n";
                     break;
                 }
                 app.listarArboles();
-                string elegido;
-                cout << "Que arbol quieres ver? Escribe su nombre: ";
-                cin >> elegido;
+                string elegido = leerToken("Que arbol quieres ver? Escribe su nombre: ");
                 app.mostrarArbolElegido(elegido);
                 break;
             }
-            case 8:
+            case 5:
                 app.guardarJSON(archivoJSON);
                 break;
-            case 9:
+            case 6:
                 app.cargarJSON(archivoJSON);
                 break;
-            case 10:
+            case 7: {
+                if (!app.validarActivo()) break;
+                app.listarNodosActivo();
+                string actual = leerToken("Valor del nodo a editar: ");
+                string nuevoVal = leerToken("Nuevo valor del nodo: ");
+                string etq = leerToken("Nueva etiqueta (max 3 chars): ");
+                double peso = leerDouble("Nuevo peso (double): ");
+                app.modificarNodo(actual, nuevoVal, etq, peso);
+                break;
+            }
+            case 8: {
+                if (!app.hayArboles()) {
+                    cout << "\n[AVISO] No hay arboles para eliminar.\n";
+                    break;
+                }
+                int tipo = leerEntero("Que deseas eliminar?\n1. Arbol completo\n2. Nodo y su subarbol (en arbol activo)\nSelecciona una opcion: ");
+                if (tipo == 1) {
+                    app.listarArboles();
+                    string nombre = leerToken("Escribe el nombre del arbol a eliminar: ");
+                    app.eliminarArbol(nombre);
+                } else if (tipo == 2) {
+                    if (!app.validarActivo()) break;
+                    app.listarNodosActivo();
+                    string val = leerToken("Valor del nodo a eliminar (junto con sus hijos): ");
+                    app.quitarNodoYSubarbol(val);
+                } else {
+                    cout << "\n[ERROR] Opcion no valida.\n";
+                }
+                break;
+            }
+            case 9:
                 cout << "\nSaliendo del programa. Hasta luego!\n";
                 break;
             default:
                 cout << "\n[ERROR] Opcion no valida.\n";
         }
-    } while (opcion != 10);
+    } while (opcion != 9);
 
     return 0;
 }
