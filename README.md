@@ -19,7 +19,7 @@
 ## Índice
 
 1. [Desarrollo](#1-desarrollo)
-2. [Solución de las prácticas y código esencial](#2-solución-de-las-prácticas-y-código-esencial)
+2. [Prácticas ]
 3. [Compilación y ejecución](#3-compilación-y-ejecución)
 4. [Conclusiones](#4-conclusiones)
 5. [Referencias](#5-referencias)
@@ -30,9 +30,9 @@
 
 ### Descripción del trabajo
 
-Este repositorio contiene las prácticas desarrolladas para el tercer departamental. El trabajo está orientado a la aplicación de conceptos de programación orientada a objetos, abstracción, encapsulación y persistencia de información en archivos.
+Este repositorio contiene las prácticas desarrolladas para el tercer departamental. Los ejercicios aplican conceptos de abstracción, programación orientada a objetos, persistencia en archivos y estructuras de datos como grafos, digrafos y árboles.
 
-Cada ejercicio se presenta en un archivo independiente de C++, con su propia función `main`, lo que permite compilar y ejecutar cada práctica por separado según sea necesario.
+Cada práctica está organizada en un archivo independiente de C++ y dispone de su propia función `main`, por lo que puede compilarse y ejecutarse por separado.
 
 ### Objetivo
 
@@ -40,40 +40,63 @@ El objetivo principal del proyecto es reforzar el diseño de software y la manip
 
 - Tipos de dato abstracto (ADT).
 - Persistencia de información en archivos TXT, XML, JSON y CSV.
-- Lógica de almacenamiento.
+- Implementación de grafos y digrafos con vértices, aristas, arcos y rutas.
+- Construcción y manipulación de árboles jerárquicos.
 - Aplicación de principios de diseño como SRP, OCP, LSP y DIP.
-
----
-
 
 ### Procedimiento
 
-1. Se identificó el tipo de ejercicio y la técnica requerida.
-2. Se definió la estructura del tipo de dato abstracto y sus atributos.
-3. Se diseñó la interfaz de persistencia para guardar y leer información.
-4. Se implementó la solución en archivos independientes con su `main`.
-5. Se compiló y ejecutó cada ejercicio para verificar su funcionamiento.
-6. Se documentó la lógica principal para facilitar la revisión y comprensión del trabajo.
+1. Se identificó el tipo de ejercicio y la estructura de datos requerida.
+2. Se definieron las clases, atributos y operaciones del tipo de dato abstracto.
+3. Se diseñó la interfaz de persistencia para guardar y recuperar información.
+4. Se implementaron los menús interactivos con operaciones de creación, consulta, edición y eliminación.
+5. Se compiló y ejecutó cada práctica de forma independiente.
+6. Se verificó la persistencia de los datos y el comportamiento de las estructuras.
 
 ---
 
+## 2. Prácticas implementadas
 
-## 2. Solución de las prácticas y código esencial
+| Práctica | Tema | Archivo | Persistencia |
+| --- | --- | --- | --- |
+| 1 | ADT y persistencia con archivos XML | [Practica_1.cpp](Practica_1.cpp) | XML |
+| 2 | ADT y persistencia con archivos TXT | [Practica_2.cpp](Practica_2.cpp) | TXT |
+| 3 | ADT y persistencia con archivos JSON | [Practica_3.cpp](Practica_3.cpp) | JSON |
+| 5 | Grafos y paths | [practica5_gr.cpp](practica5_gr.cpp) | JSON |
+| 6 | Digrafos y paths | [Practica6_Di.cpp](Practica6_Di.cpp) | JSON |
+| 7 | Árboles jerárquicos | [Practica7_Ar.cpp](Practica7_Ar.cpp) | JSON |
+| 11 | ADT y persistencia con archivos CSV | [Practica_11.cpp](Practica_11.cpp) | CSV |
 
-A continuación se presenta la organización de las prácticas del tercer departamental.
+### 2.1 Persistencia de datos
 
-### 2.1 Persistencia de información
+Las prácticas 1, 2, 3 y 11 trabajan con elementos encapsulados en una clase ADT y permiten administrar información en archivos XML, TXT, JSON y CSV. Incluyen operaciones para agregar, listar, editar y eliminar registros mediante un menú interactivo.
 
-| No. | Concepto | Archivo |
-| --- | --- | --- |
-| 1 | Persistencia en XML | [Practica_1.cpp](Practica_1.cpp) |
-| 2 | Persistencia en TXT | [Practica_2.cpp](Practica_2.cpp) |
-| 3 | Persistencia en JSON | [Practica_3.cpp](Practica_3.cpp) |
-| 4 | Persistencia en CSV | [Practica_11.cpp](Practica_11.cpp) |
+### 2.2 Grafos
+
+La práctica 5 administra múltiples grafos. Cada grafo contiene:
+
+- Un conjunto de vértices `V`.
+- Tramos o aristas `A`, con origen, destino, etiqueta, tiempo y costo.
+- Un `path` construido como una lista de nodos.
+- Persistencia de todos los grafos en `grafos_cuaderno.json`.
+
+Permite crear y seleccionar grafos, editar tramos, administrar vértices y rutas, guardar y cargar datos.
+
+### 2.3 Digrafos
+
+La práctica 6 administra múltiples digrafos. Cada estructura contiene vértices, arcos dirigidos y un path. Los arcos incluyen nodo inicial, nodo final, etiqueta, tiempo y costo.
+
+Los datos se almacenan en el archivo `digrafos_cuaderno.json`, y el menú permite crear, editar, eliminar y consultar cada digrafo.
+
+### 2.4 Árboles
+
+La práctica 7 administra múltiples árboles mediante una estructura compuesta por nodos padre e hijos. Permite establecer una raíz, agregar hijos, modificar nodos, eliminar un nodo con su subárbol y visualizar la jerarquía.
+
+Los datos se guardan y recuperan desde `arboles_cuaderno.json`.
 
 ### Ejemplo de código esencial
 
-El siguiente fragmento muestra la estructura base del ADT usado en el proyecto:
+Las prácticas utilizan clases que encapsulan los datos y separan la lógica del sistema de la forma en que se realiza la persistencia:
 
 ```cpp
 class ElementoADT {
@@ -92,55 +115,62 @@ public:
 };
 ```
 
-Esto permite encapsular la información y trabajar con un objeto bien definido, en lugar de manejar datos sueltos.
+Las operaciones de almacenamiento se abstraen mediante interfaces y manejadores específicos. De esta forma, el programa puede guardar y recuperar registros sin acoplar directamente la lógica principal a un formato de archivo concreto.
 
-También se implementó la persistencia usando interfaces y clases concretas, como se observa en la siguiente estructura:
-
-```cpp
-class IPersistenciaXML {
-public:
-    virtual void escribir(const string& ruta, const vector<shared_ptr<ElementoADT>>& elementos) = 0;
-    virtual vector<shared_ptr<ElementoADT>> leer(const string& ruta) = 0;
-    virtual ~IPersistenciaXML() = default;
-};
-```
-
-Con esto, el sistema puede guardar y recuperar registros sin depender directamente del formato de archivo.
+---
 
 ## 3. Compilación y ejecución
 
-Se requieren compiladores compatibles con C++11 o posterior, como `g++`.
+Se requiere un compilador compatible con C++11 o posterior, como `g++`.
 
-### Compilar una práctica concreta
+### Compilar una práctica
 
-```bash
+Ejecuta desde la raíz del repositorio:
+
+```powershell
 g++ Practica_1.cpp -o practica1
+g++ Practica_2.cpp -o practica2
+g++ Practica_3.cpp -o practica3
+g++ practica5_gr.cpp -o practica5
+g++ Practica6_Di.cpp -o practica6
+g++ Practica7_Ar.cpp -o practica7
+g++ Practica_11.cpp -o practica11
 ```
 
 ### Ejecutar en Windows
 
 ```powershell
 .\practica1.exe
+.\practica2.exe
+.\practica3.exe
+.\practica5.exe
+.\practica6.exe
+.\practica7.exe
+.\practica11.exe
 ```
 
-### Ejecutar en Linux o macOS
+Cada archivo contiene su propia función `main`, por lo que debe compilarse de forma independiente.
 
-```bash
-./practica1
-```
-
-Cada ejercicio contiene su propia función `main`, por lo que debe compilarse de forma independiente.
+---
 
 ## 4. Conclusiones
 
-El tercer departamental permitió reforzar conceptos fundamentales de abstracción, programación orientada a objetos y persistencia de datos. A través de los ejercicios desarrollados, se comprendió la importancia de organizar la información de manera estructurada y separar la lógica del sistema de la forma en que se guarda la información.
+El tercer departamental permitió reforzar conceptos fundamentales de abstracción, programación orientada a objetos y persistencia de datos. Mediante los ejercicios se comprendió la importancia de separar la estructura de la información de su almacenamiento y de organizar operaciones mediante clases y interfaces.
 
-La combinación de ADT con almacenamiento en archivos demuestra que es posible crear soluciones más flexibles, reutilizables y fáciles de mantener. Esto fortalece la capacidad de diseño y la lógica de programación necesaria para resolver problemas más complejos en C++.
+Las prácticas de grafos, digrafos y árboles permitieron aplicar estructuras no lineales y administrar colecciones mediante menús interactivos y archivos JSON. El uso combinado de ADT y persistencia produce soluciones más modulares, reutilizables y fáciles de mantener.
+
+---
 
 ## 5. Referencias
 
-- Archivos fuente del proyecto: [Practica_1.cpp](Practica_1.cpp), [Practica_2.cpp](Practica_2.cpp), [Practica_3.cpp](Practica_3.cpp) y [Practica_11.cpp](Practica_11.cpp).
-- Bibliotecas estándar de C++ utilizadas: `<iostream>`, `<fstream>`, `<sstream>`, `<vector>`, `<string>`.
+- [Practica_1.cpp](Practica_1.cpp): persistencia XML.
+- [Practica_2.cpp](Practica_2.cpp): persistencia TXT.
+- [Practica_3.cpp](Practica_3.cpp): persistencia JSON.
+- [practica5_gr.cpp](practica5_gr.cpp): grafos y paths.
+- [Practica6_Di.cpp](Practica6_Di.cpp): digrafos y paths.
+- [Practica7_Ar.cpp](Practica7_Ar.cpp): árboles jerárquicos.
+- [Practica_11.cpp](Practica_11.cpp): persistencia CSV.
+- Bibliotecas estándar de C++: `<iostream>`, `<fstream>`, `<sstream>`, `<vector>`, `<list>`, `<map>`, `<memory>` y `<string>`.
 - Material académico de la asignatura Abstracción y Uso de Datos.
 
 ---
