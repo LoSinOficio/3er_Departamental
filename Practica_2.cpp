@@ -4,75 +4,185 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <limits>
 
 using namespace std;
 
 // ==========================================
-// 1. DATO / ELEMENTO COMPLEJO (SRP)
-// Reutilizable para dato complejo y arreglo complejo
+// UTILIDAD DE TEXTO Y PARSEO SEGURO (SRP)
 // ==========================================
-class ItemComplejo {
+class UtilTXT {
 public:
-    string clave;
-    int nivel;
-    double peso;
-
-    ItemComplejo(string c = "GEN", int n = 1, double p = 1.0)
-        : clave(c), nivel(n), peso(p) {}
-
-    string aTXT() const {
-        return clave + ":" + to_string(nivel) + ":" + to_string(peso);
+    static string limpiar(const string& s) {
+        size_t ini = s.find_first_not_of(" \t\r\n");
+        if (ini == string::npos) return "";
+        size_t fin = s.find_last_not_of(" \t\r\n");
+        return s.substr(ini, fin - ini + 1);
     }
 
-    static ItemComplejo desdeTXT(const string& texto) {
-        stringstream ss(texto);
-        string c, n, p;
-        getline(ss, c, ':');
-        getline(ss, n, ':');
-        getline(ss, p, ':');
-        if (c.empty()) c = "GEN";
-        int niv = n.empty() ? 1 : stoi(n);
-        double pes = p.empty() ? 1.0 : stod(p);
-        return ItemComplejo(c, niv, pes);
+    static string escapar(const string& texto) {
+        string out;
+        out.reserve(texto.size());
+        for (char c : texto) {
+            switch (c) {
+                case '\\': out += "\\\\"; break;
+                case '|':  out += "\\p"; break;
+                case ',':  out += "\\c"; break;
+                case ';':  out += "\\s"; break;
+                case ':':  out += "\\d"; break;
+                default:   out += c; break;
+            }
+        }
+        return out;
     }
 
-    void mostrar() const {
-        cout << "[" << clave << " N:" << nivel << " P:" << peso << "]";
+    static string desescapar(const string& texto) {
+        string out;
+        out.reserve(texto.size());
+        for (size_t i = 0; i < texto.size(); ++i) {
+            if (texto[i] == '\\' && i + 1 < texto.size()) {
+                char sig = texto[i + 1];
+                if (sig == '\\') { out += '\\'; ++i; }
+                else if (sig == 'p') { out += '|'; ++i; }
+                else if (sig == 'c') { out += ','; ++i; }
+                else if (sig == 's') { out += ';'; ++i; }
+                else if (sig == 'd') { out += ':'; ++i; }
+                else out += texto[i];
+            } else {
+                out += texto[i];
+            }
+        }
+        return out;
+    }
+
+    static vector<string> separarEscapado(const string& texto, char sep) {
+        vector<string> partes;
+        string actual;
+        for (size_t i = 0; i < texto.size(); ++i) {
+            if (texto[i] == '\\' && i + 1 < texto.size()) {
+                actual += texto[i];
+                actual += texto[i + 1];
+                ++i;
+            } else if (texto[i] == sep) {
+                partes.push_back(limpiar(actual));
+                actual.clear();
+            } else {
+                actual += texto[i];
+            }
+        }
+        partes.push_back(limpiar(actual));
+        return partes;
+    }
+
+    static bool parsearEnteroSeguro(const string& texto, int& salida) {
+        string limp = limpiar(texto);
+        if (limp.empty()) return false;
+        try {
+            size_t idx = 0;
+            int val = stoi(limp, &idx);
+            if (idx != limp.size()) return false;
+            salida = val;
+            return true;
+        } catch (...) {
+            return false;
+        }
+    }
+
+    static bool parsearDoubleSeguro(const string& texto, double& salida) {
+        string limp = limpiar(texto);
+        if (limp.empty()) return false;
+        try {
+            size_t idx = 0;
+            double val = stod(limp, &idx);
+            if (idx != limp.size()) return false;
+            salida = val;
+            return true;
+        } catch (...) {
+            return false;
+        }
     }
 };
 
 // ==========================================
-// 2. TIPO DE DATO ABSTRACTO (ADT) - SRP
-// Basico + arreglo simple + dato complejo + arreglo complejo
+// 1. LOTE / PRESENTACION COMPLEJA DE FRUTA (SRP)
+// ==========================================
+class ItemComplejo {
+public:
+    string clave;
+    string descripcion;
+    int nivel;
+    double peso;
+
+    ItemComplejo(string c = "FRU-GEN",
+                 string desc = "Sin descripcion",
+                 int n = 1,
+                 double p = 1.0)
+        : clave(c), descripcion(desc), nivel(n), peso(p) {}
+
+    string aTXT() const {
+        return UtilTXT::escapar(clave) + ":" +
+               UtilTXT::escapar(descripcion) + ":" +
+               to_string(nivel) + ":" +
+               to_string(peso);
+    }
+
+    static ItemComplejo desdeTXT(const string& texto) {
+        vector<string> partes = UtilTXT::separarEscapado(texto, ':');
+        string c = partes.size() > 0 && !partes[0].empty() ? UtilTXT::desescapar(partes[0]) : "FRU-GEN";
+        string d = partes.size() > 1 && !partes[1].empty() ? UtilTXT::desescapar(partes[1]) : "Sin descripcion";
+        int niv = 1;
+        double pes = 1.0;
+        if (partes.size() > 2) UtilTXT::parsearEnteroSeguro(partes[2], niv);
+        if (partes.size() > 3) UtilTXT::parsearDoubleSeguro(partes[3], pes);
+        return ItemComplejo(c, d, niv, pes);
+    }
+
+    void mostrar() const {
+        cout << "[" << clave << " | \"" << descripcion
+             << "\" | Madurez/Cat:" << nivel << " | Peso(kg):" << peso << "]";
+    }
+};
+
+// ==========================================
+// 2. TIPO DE DATO ABSTRACTO DE FRUTERIA (ADT) - SRP
 // ==========================================
 class ElementoADT {
 private:
     int id;
     string nombre;
-    vector<int> simples;
+    string descripcion;
+    vector<string> simples;
     ItemComplejo complejo;
     vector<ItemComplejo> arreglosComplejos;
 
 public:
     ElementoADT(int id,
                 string nombre,
-                vector<int> s,
+                string descripcion,
+                vector<string> s,
                 ItemComplejo c,
                 vector<ItemComplejo> ac)
-        : id(id), nombre(nombre), simples(s), complejo(c), arreglosComplejos(ac) {}
+        : id(id),
+          nombre(nombre),
+          descripcion(descripcion),
+          simples(s),
+          complejo(c),
+          arreglosComplejos(ac) {}
 
     int getId() const { return id; }
     string getNombre() const { return nombre; }
-    const vector<int>& getSimples() const { return simples; }
+    string getDescripcion() const { return descripcion; }
+    const vector<string>& getSimples() const { return simples; }
     const ItemComplejo& getComplejo() const { return complejo; }
     const vector<ItemComplejo>& getArreglosComplejos() const { return arreglosComplejos; }
 
-    // Campos separados por '|' y elementos internos por ',' o ';'
     string aTXT() const {
-        string linea = to_string(id) + " | " + nombre + " | ";
+        string linea = to_string(id) + " | " +
+                       UtilTXT::escapar(nombre) + " | " +
+                       UtilTXT::escapar(descripcion) + " | ";
 
         for (size_t i = 0; i < simples.size(); ++i) {
-            linea += to_string(simples[i]);
+            linea += UtilTXT::escapar(simples[i]);
             if (i + 1 < simples.size()) linea += ",";
         }
 
@@ -101,40 +211,21 @@ public:
 // 4. IMPLEMENTACION CONCRETA - LSP / SRP
 // ==========================================
 class ManejadorTXT : public IPersistenciaTXT {
-private:
-    static string limpiar(string s) {
-        size_t ini = s.find_first_not_of(" \t\r\n");
-        if (ini == string::npos) return "";
-        size_t fin = s.find_last_not_of(" \t\r\n");
-        return s.substr(ini, fin - ini + 1);
-    }
-
-    static vector<string> separar(const string& texto, char sep) {
-        vector<string> partes;
-        stringstream ss(texto);
-        string tok;
-        while (getline(ss, tok, sep)) {
-            string limp = limpiar(tok);
-            if (!limp.empty()) partes.push_back(limp);
-        }
-        return partes;
-    }
-
 public:
     void escribir(const string& ruta, const vector<shared_ptr<ElementoADT>>& elementos) override {
         ofstream archivo(ruta);
         if (!archivo.is_open()) {
-            cout << "\n[ERROR] No se pudo abrir el archivo TXT para escritura.\n";
+            cout << "\n[ERROR] No se pudo abrir el archivo TXT de frutería para escritura.\n";
             return;
         }
 
-        archivo << "--- REPORTE DE REGISTROS TXT ---\n";
+        archivo << "--- REPORTE DE INVENTARIO DE FRUTERIA (TXT) ---\n";
         for (const auto& elem : elementos) {
             archivo << elem->aTXT() << "\n";
         }
 
         archivo.close();
-        cout << "\n[EXITO] Datos guardados correctamente en el archivo TXT: " << ruta << "\n";
+        cout << "\n[EXITO] Datos de frutería guardados correctamente en: " << ruta << "\n";
     }
 
     vector<shared_ptr<ElementoADT>> leer(const string& ruta) override {
@@ -142,42 +233,51 @@ public:
         ifstream archivo(ruta);
 
         if (!archivo.is_open()) {
-            cout << "\n[AVISO] No se encontro un archivo TXT previo en la ruta. Se iniciara vacio.\n";
+            cout << "\n[AVISO] No se encontro un archivo TXT previo de frutería. Se iniciara vacio.\n";
             return elementos;
         }
 
         string linea;
-        getline(archivo, linea); // Omitir cabecera
-
         while (getline(archivo, linea)) {
-            string limp = limpiar(linea);
+            string limp = UtilTXT::limpiar(linea);
             if (limp.empty() || limp.find("---") != string::npos) continue;
 
-            vector<string> campos = separar(limp, '|');
-            if (campos.size() < 4) continue;
+            vector<string> campos = UtilTXT::separarEscapado(limp, '|');
+            if (campos.size() < 5) continue;
 
-            int id = stoi(campos[0]);
-            string nombre = campos[1];
+            int id = 0;
+            if (!UtilTXT::parsearEnteroSeguro(campos[0], id)) continue;
 
-            vector<int> simples;
-            for (const auto& valStr : separar(campos[2], ',')) {
-                simples.push_back(stoi(valStr));
-            }
+            string nombre = UtilTXT::desescapar(campos[1]);
+            string descripcion = UtilTXT::desescapar(campos[2]);
 
-            ItemComplejo complejo = ItemComplejo::desdeTXT(campos[3]);
-
-            vector<ItemComplejo> arreglosComplejos;
-            if (campos.size() >= 5) {
-                for (const auto& itemStr : separar(campos[4], ';')) {
-                    arreglosComplejos.push_back(ItemComplejo::desdeTXT(itemStr));
+            vector<string> simples;
+            if (!campos[3].empty()) {
+                for (const auto& valStr : UtilTXT::separarEscapado(campos[3], ',')) {
+                    if (!valStr.empty()) {
+                        simples.push_back(UtilTXT::desescapar(valStr));
+                    }
                 }
             }
 
-            elementos.push_back(make_shared<ElementoADT>(id, nombre, simples, complejo, arreglosComplejos));
+            ItemComplejo complejo = ItemComplejo::desdeTXT(campos[4]);
+
+            vector<ItemComplejo> arreglosComplejos;
+            if (campos.size() >= 6 && !campos[5].empty()) {
+                for (const auto& itemStr : UtilTXT::separarEscapado(campos[5], ';')) {
+                    if (!itemStr.empty()) {
+                        arreglosComplejos.push_back(ItemComplejo::desdeTXT(itemStr));
+                    }
+                }
+            }
+
+            elementos.push_back(
+                make_shared<ElementoADT>(id, nombre, descripcion, simples, complejo, arreglosComplejos)
+            );
         }
 
         archivo.close();
-        cout << "\n[EXITO] Datos leidos y recuperados desde el archivo TXT: " << ruta << "\n";
+        cout << "\n[EXITO] Datos de frutería leidos y recuperados desde: " << ruta << "\n";
         return elementos;
     }
 };
@@ -193,15 +293,46 @@ private:
 public:
     GestorSistema(unique_ptr<IPersistenciaTXT> pers) : persistencia(move(pers)) {}
 
+    bool estaVacia() const {
+        return coleccionDatos.empty();
+    }
+
+    size_t cantidadElementos() const {
+        return coleccionDatos.size();
+    }
+
     void agregarElemento(int id,
                          string nombre,
-                         vector<int> simples,
+                         string descripcion,
+                         vector<string> simples,
                          ItemComplejo complejo,
                          vector<ItemComplejo> arreglosComplejos) {
         coleccionDatos.push_back(
-            make_shared<ElementoADT>(id, nombre, simples, complejo, arreglosComplejos)
+            make_shared<ElementoADT>(id, nombre, descripcion, simples, complejo, arreglosComplejos)
         );
-        cout << "\n[INFO] Elemento agregado exitosamente a la memoria RAM.\n";
+        cout << "\n[INFO] Fruta/producto agregado exitosamente a la memoria RAM.\n";
+    }
+
+    bool editarElemento(size_t indice,
+                        int id,
+                        string nombre,
+                        string descripcion,
+                        vector<string> simples,
+                        ItemComplejo complejo,
+                        vector<ItemComplejo> arreglosComplejos) {
+        if (indice >= coleccionDatos.size()) return false;
+        coleccionDatos[indice] = make_shared<ElementoADT>(
+            id, nombre, descripcion, simples, complejo, arreglosComplejos
+        );
+        cout << "\n[INFO] Registro [" << (indice + 1) << "] actualizado en la memoria RAM.\n";
+        return true;
+    }
+
+    bool eliminarElemento(size_t indice) {
+        if (indice >= coleccionDatos.size()) return false;
+        coleccionDatos.erase(coleccionDatos.begin() + static_cast<long>(indice));
+        cout << "\n[INFO] Registro [" << (indice + 1) << "] eliminado de la memoria RAM.\n";
+        return true;
     }
 
     void guardarEnDisco(const string& ruta) {
@@ -212,33 +343,116 @@ public:
         coleccionDatos = persistencia->leer(ruta);
     }
 
+    void listarResumido() const {
+        if (coleccionDatos.empty()) {
+            cout << "\n[AVISO] No hay frutas o productos registrados en la memoria actualmente.\n";
+            return;
+        }
+        cout << "\n--- INVENTARIO DE FRUTERIA EN MEMORIA RAM ---\n";
+        for (size_t i = 0; i < coleccionDatos.size(); ++i) {
+            cout << (i + 1) << ". ID: " << coleccionDatos[i]->getId()
+                 << " | Fruta/Producto: " << coleccionDatos[i]->getNombre()
+                 << " | Desc: " << coleccionDatos[i]->getDescripcion() << "\n";
+        }
+    }
+
     void mostrarEnConsola() const {
         if (coleccionDatos.empty()) {
-            cout << "\n[AVISO] No hay elementos registrados en la memoria actualmente.\n";
+            cout << "\n[AVISO] No hay frutas o productos registrados en la memoria actualmente.\n";
             return;
         }
         cout << "\n=======================================================================\n";
-        cout << "                    REGISTROS ACTUALES EN MEMORIA                      \n";
+        cout << "                 REGISTROS DE FRUTERIA ACTUALES EN MEMORIA            \n";
         cout << "=======================================================================\n";
-        for (const auto& elem : coleccionDatos) {
-            cout << "ID: " << elem->getId()
-                 << " | Nombre: " << elem->getNombre()
-                 << " | Simples: [ ";
-            for (int s : elem->getSimples()) {
-                cout << s << " ";
+        for (size_t idx = 0; idx < coleccionDatos.size(); ++idx) {
+            const auto& elem = coleccionDatos[idx];
+            cout << "[" << (idx + 1) << "] ID: " << elem->getId()
+                 << " | Fruta/Producto: " << elem->getNombre()
+                 << "\n  Descripcion: " << elem->getDescripcion()
+                 << "\n  Variedades/Etiquetas simples: [ ";
+            for (size_t i = 0; i < elem->getSimples().size(); ++i) {
+                cout << "\"" << elem->getSimples()[i] << "\"";
+                if (i + 1 < elem->getSimples().size()) cout << ", ";
             }
-            cout << "]\n  Dato Complejo: ";
+            cout << " ]\n  Lote/Presentacion principal: ";
             elem->getComplejo().mostrar();
-            cout << "\n  Arreglo Complejo: [ ";
+            cout << "\n  Otros lotes/presentaciones: [ ";
             for (size_t i = 0; i < elem->getArreglosComplejos().size(); ++i) {
                 elem->getArreglosComplejos()[i].mostrar();
                 if (i + 1 < elem->getArreglosComplejos().size()) cout << ", ";
             }
-            cout << " ]\n";
+            cout << " ]\n-----------------------------------------------------------------------\n";
         }
-        cout << "=======================================================================\n";
     }
 };
+
+namespace {
+    int leerEntero(const string& prompt) {
+        int val;
+        while (true) {
+            cout << prompt;
+            if (cin >> val) return val;
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "[ERROR] Ingresa un numero entero valido.\n";
+        }
+    }
+
+    double leerDouble(const string& prompt) {
+        double val;
+        while (true) {
+            cout << prompt;
+            if (cin >> val) return val;
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "[ERROR] Ingresa un numero valido.\n";
+        }
+    }
+
+    string leerLinea(const string& prompt) {
+        string linea;
+        cout << prompt;
+        getline(cin >> ws, linea);
+        return linea;
+    }
+
+    void capturarDatosElemento(int& id,
+                               string& nombre,
+                               string& descripcion,
+                               vector<string>& simples,
+                               ItemComplejo& complejo,
+                               vector<ItemComplejo>& arreglosComplejos) {
+        id = leerEntero("Ingresa el ID numerico de la fruta/producto: ");
+        nombre = leerLinea("Ingresa el Nombre de la fruta o producto (ej. Mango Ataulfo): ");
+        descripcion = leerLinea("Ingresa una Descripcion general (ej. Dulce, de temporada y jugoso): ");
+
+        int cantSimples = leerEntero("Cuantas variedades, colores o etiquetas simples tendra?: ");
+        if (cantSimples < 0) cantSimples = 0;
+        simples.assign(cantSimples, "");
+        for (int i = 0; i < cantSimples; ++i) {
+            simples[i] = leerLinea("  Variedad/etiqueta [" + to_string(i + 1) + "]: ");
+        }
+
+        cout << "\n--- Lote o presentacion principal (dato complejo) ---\n";
+        string cClave = leerLinea("  Clave de lote (ej. LOTE-MNG-01): ");
+        string cDesc = leerLinea("  Descripcion del lote (ej. Caja de exportacion o huacal): ");
+        int cNivel = leerEntero("  Nivel de madurez o categoria (entero, ej. 1-5): ");
+        double cPeso = leerDouble("  Peso en kg (decimal, ej. 12.5): ");
+        complejo = ItemComplejo(cClave, cDesc, cNivel, cPeso);
+
+        int cantComplejos = leerEntero("\nCuantos lotes o presentaciones adicionales tendra?: ");
+        if (cantComplejos < 0) cantComplejos = 0;
+        arreglosComplejos.clear();
+        for (int i = 0; i < cantComplejos; ++i) {
+            cout << "  -- Presentacion/lote [" << i + 1 << "] --\n";
+            string k = leerLinea("    Clave: ");
+            string d = leerLinea("    Descripcion: ");
+            int nv = leerEntero("    Nivel de madurez o categoria (entero): ");
+            double ps = leerDouble("    Peso en kg (decimal): ");
+            arreglosComplejos.emplace_back(k, d, nv, ps);
+        }
+    }
+}
 
 // ==========================================
 // 6. FUNCION PRINCIPAL CON MENU INTERACTIVO
@@ -248,57 +462,30 @@ int main() {
     GestorSistema sistema(move(servicioTXT));
 
     int opcion;
-    string nombreArchivo = "ejercicio_datos_completo.txt";
+    string nombreArchivo = "fruteria_adt.txt";
 
     do {
         cout << "\n=========================================================\n";
-        cout << "   MENU - ARCHIVOS TXT  \n";
+        cout << "        MENU - INVENTARIO DE FRUTERIA (ARCHIVOS TXT)     \n";
         cout << "=========================================================\n";
-        cout << "1. Agregar nuevo elemento (ADT)\n";
-        cout << "2. Ver elementos en memoria RAM\n";
-        cout << "3. Guardar elementos en archivo TXT (Disco)\n";
-        cout << "4. Cargar elementos desde archivo TXT (Disco)\n";
-        cout << "5. Salir\n";
-        cout << "Selecciona una opcion: ";
-        cin >> opcion;
+        cout << "1. Agregar nueva fruta o producto (ADT)\n";
+        cout << "2. Ver inventario en memoria RAM\n";
+        cout << "3. Guardar inventario en archivo TXT (Disco)\n";
+        cout << "4. Cargar inventario desde archivo TXT (Disco)\n";
+        cout << "5. Editar fruta o producto existente en memoria RAM\n";
+        cout << "6. Eliminar fruta o producto existente en memoria RAM\n";
+        cout << "7. Salir\n";
+        opcion = leerEntero("Selecciona una opcion: ");
 
         switch (opcion) {
             case 1: {
-                int id, cantSimples, cantComplejos;
-                string nombre, cClave;
-                int cNivel;
-                double cPeso;
-
-                cout << "Ingresa el ID numerico: ";
-                cin >> id;
-                cout << "Ingresa el Nombre o Descriptor: ";
-                cin >> nombre;
-
-                cout << "Cuantos valores tendra el arreglo simple?: ";
-                cin >> cantSimples;
-                vector<int> simples(cantSimples);
-                for (int i = 0; i < cantSimples; ++i) {
-                    cout << "  Valor simple [" << i + 1 << "]: ";
-                    cin >> simples[i];
-                }
-
-                cout << "Dato complejo (clave nivel peso): ";
-                cin >> cClave >> cNivel >> cPeso;
-                ItemComplejo complejo(cClave, cNivel, cPeso);
-
-                cout << "Cuantos objetos tendra el arreglo complejo?: ";
-                cin >> cantComplejos;
+                int id;
+                string nombre, descripcion;
+                vector<string> simples;
+                ItemComplejo complejo;
                 vector<ItemComplejo> arreglosComplejos;
-                for (int i = 0; i < cantComplejos; ++i) {
-                    string k;
-                    int nv;
-                    double ps;
-                    cout << "  Item complejo [" << i + 1 << "] (clave nivel peso): ";
-                    cin >> k >> nv >> ps;
-                    arreglosComplejos.emplace_back(k, nv, ps);
-                }
-
-                sistema.agregarElemento(id, nombre, simples, complejo, arreglosComplejos);
+                capturarDatosElemento(id, nombre, descripcion, simples, complejo, arreglosComplejos);
+                sistema.agregarElemento(id, nombre, descripcion, simples, complejo, arreglosComplejos);
                 break;
             }
             case 2:
@@ -310,13 +497,49 @@ int main() {
             case 4:
                 sistema.cargarDesdeDisco(nombreArchivo);
                 break;
-            case 5:
+            case 5: {
+                if (sistema.estaVacia()) {
+                    cout << "\n[AVISO] No hay registros en memoria RAM para editar.\n";
+                    break;
+                }
+                sistema.listarResumido();
+                int num = leerEntero("Selecciona el numero de registro a editar: ");
+                if (num < 1 || static_cast<size_t>(num) > sistema.cantidadElementos()) {
+                    cout << "\n[ERROR] Numero de registro fuera de rango.\n";
+                    break;
+                }
+                int id;
+                string nombre, descripcion;
+                vector<string> simples;
+                ItemComplejo complejo;
+                vector<ItemComplejo> arreglosComplejos;
+                capturarDatosElemento(id, nombre, descripcion, simples, complejo, arreglosComplejos);
+                sistema.editarElemento(
+                    static_cast<size_t>(num - 1), id, nombre, descripcion, simples, complejo, arreglosComplejos
+                );
+                break;
+            }
+            case 6: {
+                if (sistema.estaVacia()) {
+                    cout << "\n[AVISO] No hay registros en memoria RAM para eliminar.\n";
+                    break;
+                }
+                sistema.listarResumido();
+                int num = leerEntero("Selecciona el numero de registro a eliminar: ");
+                if (num < 1 || static_cast<size_t>(num) > sistema.cantidadElementos()) {
+                    cout << "\n[ERROR] Numero de registro fuera de rango.\n";
+                    break;
+                }
+                sistema.eliminarElemento(static_cast<size_t>(num - 1));
+                break;
+            }
+            case 7:
                 cout << "\nSaliendo del programa. Hasta luego!\n";
                 break;
             default:
                 cout << "\n[ERROR] Opcion no valida. Intenta de nuevo.\n";
         }
-    } while (opcion != 5);
+    } while (opcion != 7);
 
     return 0;
 }
